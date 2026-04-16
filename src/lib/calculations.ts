@@ -1,0 +1,586 @@
+import { MarketingRecord, CHANNELS } from './mockData';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Basic Summaries
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ChannelSummary {
+  channel: string;
+  totalSpend: number;
+  totalRevenue: number;
+  roas: number;
+  conversions: number;
+  newCustomers: number;
+  cpa: number;
+}
+
+export function getChannelSummaries(data: MarketingRecord[]): ChannelSummary[] {
+  const map = new Map<string, { spend: number; revenue: number; conversions: number; newCustomers: number }>();
+  for (const r of data) {
+    const c = map.get(r.channel) || { spend: 0, revenue: 0, conversions: 0, newCustomers: 0 };
+    c.spend += r.spend;
+    c.revenue += r.revenue;
+    c.conversions += r.conversions;
+    c.newCustomers += r.new_customers;
+    map.set(r.channel, c);
+  }
+  return CHANNELS.map(ch => {
+    const c = map.get(ch) || { spend: 0, revenue: 0, conversions: 0, newCustomers: 0 };
+    return {
+      channel: ch,
+      totalSpend: c.spend,
+      totalRevenue: c.revenue,
+      roas: c.spend > 0 ? c.revenue / c.spend : 0,
+      conversions: c.conversions,
+      newCustomers: c.newCustomers,
+      cpa: c.conversions > 0 ? c.spend / c.conversions : 0,
+    };
+  });
+}
+
+export function getWeeklyROAS(data: MarketingRecord[], channel: string): { week: string; roas: number }[] {
+  const weekMap = new Map<string, { spend: number; revenue: number }>();
+  for (const r of data) {
+    if (r.channel !== channel) continue;
+    const d = new Date(r.date);
+    const weekStart = new Date(d);
+    weekStart.setDate(d.getDate() - d.getDay());
+    const key = weekStart.toISOString().split('T')[0];
+    const w = weekMap.get(key) || { spend: 0, revenue: 0 };
+    w.spend += r.spend;
+    w.revenue += r.revenue;
+    weekMap.set(key, w);
+  }
+  return Array.from(weekMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([week, v]) => ({ week, roas: v.spend > 0 ? v.revenue / v.spend : 0 }));
+}
+
+export interface FatigueAlert {
+  channel: string;
+  dropPct: number;
+  last8Weeks: { week: string; roas: number }[];
+}
+
+export function detectFatigue(data: MarketingRecord[]): FatigueAlert[] {
+  const alerts: FatigueAlert[] = [];
+  for (const ch of CHANNELS) {
+    const weekly = getWeeklyROAS(data, ch);
+    if (weekly.length < 4) continue;
+    const last8 = weekly.slice(-8);
+    const recent = weekly.slice(-4);
+    let declining = 0;
+    for (let i = 1; i < recent.length; i++) {
+      if (recent[i].roas < recent[i - 1].roas) declining++;
+      else declining = 0;
+    }
+    if (declining >= 3) {
+      const dropPct = recent[0].roas > 0
+        ? Math.round((1 - recent[recent.length - 1].roas / recent[0].roas) * 100)
+        : 0;
+      alerts.push({ channel: ch, dropPct, last8Weeks: last8 });
+    }
+  }
+  return alerts;
+}
+
+export function getMonthlyAggregation(
+  data: MarketingRecord[]
+): Record<string, Record<string, { spend: number; revenue: number; impressions: number; clicks: number; conversions: number; newCustomers: number }>> {
+  const result: Record<string, Record<string, { spend: number; revenue: number; impressions: number; clicks: number; conversions: number; newCustomers: number }>> = {};
+  for (const r of data) {
+    const month = r.date.slice(0, 7);
+    if (!result[month]) result[month] = {};
+    if (!result[month][r.channel]) result[month][r.channel] = { spend: 0, revenue: 0, impressions: 0, clicks: 0, conversions: 0, newCustomers: 0 };
+    const c = result[month][r.channel];
+    c.spend += r.spend;
+    c.revenue += r.revenue;
+    c.impressions += r.impressions;
+    c.clicks += r.clicks;
+    c.conversions += r.conversions;
+    c.newCustomers += r.new_customers;
+  }
+  return result;
+}
+
+export function getDailySparkline(data: MarketingRecord[], channel: string, days = 7): number[] {
+  const filtered = data.filter(r => r.channel === channel).sort((a, b) => a.date.localeCompare(b.date));
+  return filtered.slice(-days).map(r => r.spend > 0 ? r.revenue / r.spend : 0);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Diminishing Returns Model  (revenue = α · ln(spend + 1))
+//
+// We fit this on MONTHLY aggregated spend per channel, not daily, so that
+// the alpha coefficient operates at the same scale as the monthly budget
+// we optimise (₹50 L = 5,000,000).
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface SaturationModel {
+  channel: string;
+  /** Base log-scale coefficient (neutralized for seasonality) */
+  alpha: number;
+  /** Spend bucket → avg ROAS (for scatter chart) */
+  scatterPoints: { spend: number; roas: number }[];
+  /**
+   * Neutral monthly spend level where marginal ROAS = 1 (breakeven).
+   */
+  saturationPoint: number;
+}
+
+export function getChannelSaturationModels(data: MarketingRecord[]): SaturationModel[] {
+  const monthly = getMonthlyAggregation(data);
+  // Calculate seasonality indices first so we can normalize our saturation fitting
+  const seasonalityIndices = getSeasonalityMetrics(data);
+
+  return CHANNELS.map(channel => {
+    const sea = seasonalityIndices.find(s => s.channel === channel);
+    const indices = sea?.monthlyIndex || Array(12).fill(1);
+
+    // Collect normalized (monthly_spend, monthly_revenue) pairs
+    const points: { spend: number; revenue: number }[] = [];
+    for (const [monthKey, monthData] of Object.entries(monthly)) {
+      const c = monthData[channel];
+      if (c && c.spend > 0) {
+        const monthNum = parseInt(monthKey.slice(5, 7)) - 1; // 0..11
+        const multiplier = indices[monthNum] || 1;
+        // Normalize revenue by dividing by the seasonal multiplier
+        // This gives us the "neutral" performance for fitting the base alpha
+        points.push({ spend: c.spend, revenue: c.revenue / multiplier });
+      }
+    }
+
+    if (points.length === 0) return { channel, alpha: 1, scatterPoints: [], saturationPoint: 0 };
+
+    // alpha = median of (normalized_revenue / ln(spend + 1))
+    const alphas = points
+      .map(p => p.revenue / Math.log(p.spend + 1))
+      .filter(a => isFinite(a) && a > 0)
+      .sort((a, b) => a - b);
+    const alpha = alphas.length > 0 ? alphas[Math.floor(alphas.length / 2)] : 1;
+
+    // Bucket into scatter points for the visual chart
+    const sorted = [...points].sort((a, b) => a.spend - b.spend);
+    const bucketSize = Math.max(1, Math.ceil(sorted.length / 20));
+    const scatterPoints: { spend: number; roas: number }[] = [];
+    for (let i = 0; i < sorted.length; i += bucketSize) {
+      const bucket = sorted.slice(i, i + bucketSize);
+      const totalSpend = bucket.reduce((s, p) => s + p.spend, 0);
+      const totalRevenue = bucket.reduce((s, p) => s + p.revenue, 0);
+      scatterPoints.push({
+        spend: totalSpend / bucket.length,
+        roas: totalSpend > 0 ? totalRevenue / totalSpend : 0,
+      });
+    }
+
+    const saturationPoint = Math.max(0, alpha - 1);
+    return { channel, alpha, scatterPoints, saturationPoint };
+  });
+}
+
+/** Project monthly revenue using log model and optional seasonal multiplier */
+export function projectRevenue(model: SaturationModel, spend: number, multiplier = 1.0): number {
+  if (spend <= 0) return 0;
+  return (model.alpha * multiplier) * Math.log(spend + 1);
+}
+
+/** Marginal ROAS: (α * multiplier) / (spend + 1) */
+export function getMarginalROAS(model: SaturationModel, spend: number, multiplier = 1.0): number {
+  return (model.alpha * multiplier) / (spend + 1);
+}
+
+/** Generate Marginal ROAS curve data across a spend range */
+export function getMarginalROASCurve(
+  model: SaturationModel,
+  maxSpend: number,
+  points = 40,
+): { spend: number; marginalROAS: number; avgROAS: number }[] {
+  return Array.from({ length: points }, (_, i) => {
+    const spend = (maxSpend / points) * (i + 1);
+    const rev = projectRevenue(model, spend);
+    return {
+      spend,
+      marginalROAS: parseFloat(getMarginalROAS(model, spend).toFixed(4)),
+      avgROAS: parseFloat((spend > 0 ? rev / spend : 0).toFixed(4)),
+    };
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Non-Linear Optimal Allocation (Lagrange Multipliers)
+//
+// Maximise:  Σ αᵢ · ln(xᵢ + 1)
+// Subject to: Σ xᵢ = B  (B = monthly budget)
+//
+// KKT: αᵢ / (xᵢ + 1) = λ  →  xᵢ = αᵢ/λ − 1
+// Substituting: λ = Σαᵢ / (B + n_active)
+//
+// Channels whose unconstrained allocation would be negative are clamped to 0
+// and the remainder are re-solved iteratively.
+// ─────────────────────────────────────────────────────────────────────────────
+export function getOptimalAllocationNonLinear(
+  models: SaturationModel[],
+  budget: number,
+  excludedChannels: Set<string> = new Set(),
+  multipliers: Record<string, number> = {},
+): Record<string, number> {
+  // Absolute spend per channel (rupees)
+  const absoluteSpend: Record<string, number> = {};
+  CHANNELS.forEach(ch => (absoluteSpend[ch] = 0));
+
+  let active = models.filter(m => !excludedChannels.has(m.channel));
+  let remainingBudget = budget;
+
+  // We optimize: Maximize Σ (alpha_i * multiplier_i) * ln(x_i + 1)
+  // KKT condition: (alpha_i * multiplier_i) / (x_i + 1) = lambda
+  // x_i = (alpha_i * multiplier_i) / lambda - 1
+
+  for (let iter = 0; iter < 20; iter++) {
+    if (active.length === 0) break;
+
+    const sumAlphaAdjusted = active.reduce((s, m) => s + (m.alpha * (multipliers[m.channel] || 1.0)), 0);
+    const lambda = sumAlphaAdjusted / (remainingBudget + active.length);
+
+    const unconstrained: Record<string, number> = {};
+    let allPositive = true;
+    for (const m of active) {
+      const mult = multipliers[m.channel] || 1.0;
+      const x = (m.alpha * mult) / lambda - 1;
+      unconstrained[m.channel] = x;
+      if (x < 0) allPositive = false;
+    }
+
+    if (allPositive) {
+      const total = Object.values(unconstrained).reduce((s, v) => s + v, 0);
+      const scale = total > 0 ? remainingBudget / total : 1;
+      for (const m of active) absoluteSpend[m.channel] = unconstrained[m.channel] * scale;
+      break;
+    }
+
+    const nextActive: typeof active = [];
+    for (const m of active) {
+      if (unconstrained[m.channel] < 0) {
+        absoluteSpend[m.channel] = 0;
+      } else {
+        nextActive.push(m);
+      }
+    }
+    active = nextActive;
+  }
+
+  const fractions: Record<string, number> = {};
+  CHANNELS.forEach(ch => (fractions[ch] = budget > 0 ? absoluteSpend[ch] / budget : 0));
+  return fractions;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Precompute Scenario Projections (call once per budget scenario list)
+// ─────────────────────────────────────────────────────────────────────────────
+export interface ScenarioResult {
+  budget: number;
+  revenue: number;
+  roas: number;
+  fractions: Record<string, number>;
+}
+
+export function computeScenarios(
+  models: SaturationModel[],
+  budgets: number[],
+  excludedChannels: Set<string> = new Set(),
+  multipliers: Record<string, number> = {},
+): ScenarioResult[] {
+  return budgets.map(budget => {
+    const fractions = getOptimalAllocationNonLinear(models, budget, excludedChannels, multipliers);
+    const revenue = CHANNELS.reduce((s, ch) => {
+      const m = models.find(x => x.channel === ch);
+      const mult = multipliers[ch] || 1.0;
+      return s + (m ? projectRevenue(m, (fractions[ch] || 0) * budget, mult) : 0);
+    }, 0);
+    return { budget, revenue, roas: budget > 0 ? revenue / budget : 0, fractions };
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Legacy linear allocation (kept for comparison)
+// ─────────────────────────────────────────────────────────────────────────────
+export function getOptimalAllocation(summaries: ChannelSummary[]): Record<string, number> {
+  const totalWeight = summaries.reduce((s, c) => s + c.roas, 0);
+  const alloc: Record<string, number> = {};
+  for (const c of summaries) alloc[c.channel] = Math.min(0.6, Math.max(0.02, c.roas / totalWeight));
+  const sum = Object.values(alloc).reduce((s, v) => s + v, 0);
+  for (const k of Object.keys(alloc)) alloc[k] = alloc[k] / sum;
+  return alloc;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Seasonality Analysis
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface SeasonalityMetrics {
+  channel: string;
+  monthlyIndex: number[]; // 0..11
+  peakMonth: number;
+  troughMonth: number;
+  peakBoost: number;
+}
+
+export function getSeasonalityMetrics(data: MarketingRecord[]): SeasonalityMetrics[] {
+  return CHANNELS.map(channel => {
+    const monthBuckets: { spend: number; revenue: number }[] = Array.from({ length: 12 }, () => ({ spend: 0, revenue: 0 }));
+    for (const r of data) {
+      if (r.channel !== channel) continue;
+      const m = new Date(r.date).getMonth();
+      monthBuckets[m].spend += r.spend;
+      monthBuckets[m].revenue += r.revenue;
+    }
+    const monthlyROAS = monthBuckets.map(b => (b.spend > 0 ? b.revenue / b.spend : 0));
+    const avgROAS = monthlyROAS.reduce((s, v) => s + v, 0) / 12 || 1;
+    const monthlyIndex = monthlyROAS.map(r => parseFloat((avgROAS > 0 ? r / avgROAS : 1).toFixed(3)));
+
+    let peakMonth = 0, troughMonth = 0;
+    monthlyIndex.forEach((v, i) => {
+      if (v > monthlyIndex[peakMonth]) peakMonth = i;
+      if (v < monthlyIndex[troughMonth]) troughMonth = i;
+    });
+    return { channel, monthlyIndex, peakMonth, troughMonth, peakBoost: monthlyIndex[peakMonth] - 1 };
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Day-of-Week Analysis
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface DayOfWeekMetrics {
+  channel: string;
+  dowIndex: number[]; // 0=Sun … 6=Sat
+  bestDay: number;
+  worstDay: number;
+  weekdayAvg: number;
+  weekendAvg: number;
+  weekendBias: 'weekday' | 'weekend' | 'neutral';
+}
+
+export function getDayOfWeekMetrics(data: MarketingRecord[]): DayOfWeekMetrics[] {
+  // Use the API's pre-computed day_of_week field (Sun=0, Mon=1, ..., Sat=6)
+  const DOW_ORDER: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+
+  return CHANNELS.map(channel => {
+    const buckets: { spend: number; revenue: number }[] = Array.from({ length: 7 }, () => ({ spend: 0, revenue: 0 }));
+    for (const r of data) {
+      if (r.channel !== channel) continue;
+      // Use API's day_of_week if available, else fall back to deriving from date
+      const dowStr = r.day_of_week;
+      const dow = dowStr && DOW_ORDER[dowStr] !== undefined
+        ? DOW_ORDER[dowStr]
+        : new Date(r.date).getDay();
+      buckets[dow].spend += r.spend;
+      buckets[dow].revenue += r.revenue;
+    }
+
+    const dowROAS = buckets.map(b => (b.spend > 0 ? b.revenue / b.spend : 0));
+    const avg = dowROAS.reduce((s, v) => s + v, 0) / 7 || 1;
+    const dowIndex = dowROAS.map(r => parseFloat((avg > 0 ? r / avg : 1).toFixed(3)));
+
+    let bestDay = 0, worstDay = 0;
+    dowIndex.forEach((v, i) => {
+      if (v > dowIndex[bestDay]) bestDay = i;
+      if (v < dowIndex[worstDay]) worstDay = i;
+    });
+    const weekdayAvg = (dowIndex[1] + dowIndex[2] + dowIndex[3] + dowIndex[4] + dowIndex[5]) / 5;
+    const weekendAvg = (dowIndex[0] + dowIndex[6]) / 2;
+    const diff = weekendAvg - weekdayAvg;
+    const weekendBias: 'weekday' | 'weekend' | 'neutral' =
+      diff > 0.05 ? 'weekend' : diff < -0.05 ? 'weekday' : 'neutral';
+
+    return { channel, dowIndex, bestDay, worstDay, weekdayAvg, weekendAvg, weekendBias };
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AI Insight Generation
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ChannelInsight {
+  channel: string;
+  type: 'boost' | 'cut' | 'timing' | 'saturated';
+  headline: string;
+  rationale: string;
+  priority: 'high' | 'medium' | 'low';
+}
+
+const DOW_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+export function generateChannelInsights(
+  summaries: ChannelSummary[],
+  models: SaturationModel[],
+  seasonality: SeasonalityMetrics[],
+  dowMetrics: DayOfWeekMetrics[],
+  budget: number,
+  optimalFractions: Record<string, number>,
+  currentFractions: Record<string, number>,
+): ChannelInsight[] {
+  const avgROAS = summaries.reduce((s, c) => s + c.roas, 0) / (summaries.length || 1);
+  const insights: ChannelInsight[] = [];
+
+  for (const ch of CHANNELS) {
+    const summary = summaries.find(s => s.channel === ch);
+    const model = models.find(m => m.channel === ch);
+    const sea = seasonality.find(s => s.channel === ch);
+    const dow = dowMetrics.find(d => d.channel === ch);
+    if (!summary || !model || !sea || !dow) continue;
+
+    const currentSpend = (currentFractions[ch] || 0) * budget;
+    const marginalNow = getMarginalROAS(model, currentSpend);
+    const isSaturated = marginalNow < 1.0;
+    const optFrac = optimalFractions[ch] || 0;
+    const curFrac = currentFractions[ch] || 0;
+
+    if (isSaturated) {
+      insights.push({
+        channel: ch,
+        type: 'saturated',
+        headline: `${ch} is past its saturation point`,
+        rationale: `Marginal ROAS at current spend (₹${(currentSpend / 100000).toFixed(1)}L/mo) is ${marginalNow.toFixed(2)}x — each additional rupee returns less than ₹1. Reduce spend and reallocate to under-invested channels.`,
+        priority: 'high',
+      });
+    }
+
+    if (!isSaturated && summary.roas > avgROAS * 1.25 && optFrac > curFrac + 0.02) {
+      insights.push({
+        channel: ch,
+        type: 'boost',
+        headline: `Increase ${ch} budget by ~${Math.round((optFrac - curFrac) * 100)}%`,
+        rationale: `Historical ROAS of ${summary.roas.toFixed(2)}x sits ${Math.round((summary.roas / avgROAS - 1) * 100)}% above portfolio average. Not yet saturated — marginal ROAS is still ${marginalNow.toFixed(2)}x. The optimizer recommends ${Math.round(optFrac * 100)}% allocation.`,
+        priority: summary.roas > avgROAS * 1.6 ? 'high' : 'medium',
+      });
+    }
+
+    if (summary.roas < avgROAS * 0.75 && optFrac < curFrac - 0.02) {
+      insights.push({
+        channel: ch,
+        type: 'cut',
+        headline: `Cut ${ch} spend by ~${Math.round((curFrac - optFrac) * 100)}%`,
+        rationale: `ROAS of ${summary.roas.toFixed(2)}x is ${Math.round((1 - summary.roas / avgROAS) * 100)}% below portfolio average. Reallocating freed budget to ${summaries.reduce((b, c) => c.roas > b.roas ? c : b, summaries[0]).channel} could lift overall return.`,
+        priority: 'medium',
+      });
+    }
+
+    if (dow.weekendBias !== 'neutral') {
+      insights.push({
+        channel: ch,
+        type: 'timing',
+        headline: `${ch} peaks on ${dow.weekendBias === 'weekend' ? 'weekends' : 'weekdays'}`,
+        rationale: `${DOW_NAMES[dow.bestDay]} is the top day (${((dow.dowIndex[dow.bestDay] - 1) * 100).toFixed(0)}% above average). Concentrating bids during ${dow.weekendBias === 'weekend' ? 'Sat–Sun' : 'Mon–Fri'} can improve efficiency without changing total spend.`,
+        priority: 'low',
+      });
+    }
+
+    if (sea.peakBoost > 0.12) {
+      insights.push({
+        channel: ch,
+        type: 'timing',
+        headline: `${ch} peaks in ${MONTH_NAMES[sea.peakMonth]} (+${Math.round(sea.peakBoost * 100)}%)`,
+        rationale: `${MONTH_NAMES[sea.peakMonth]} shows a ${Math.round(sea.peakBoost * 100)}% ROAS uplift over the annual baseline. Front-loading budget into this window maximises return during peak demand periods.`,
+        priority: sea.peakBoost > 0.22 ? 'high' : 'medium',
+      });
+    }
+  }
+
+  const order: Record<string, number> = { high: 0, medium: 1, low: 2 };
+  return insights.sort((a, b) => order[a.priority] - order[b.priority]).slice(0, 8);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Financial & Unit Economics
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface FinancialMetric {
+  channel: string;
+  spend: number;
+  revenue: number;
+  profit: number;
+  roi: number;
+  cac: number;
+  ltv: number;
+  paybackDays: number;
+}
+
+const DEFAULT_MARGIN = 0.60; // 60% Contribution Margin
+const LTV_MULTIPLIER = 3.5;  // Average customer makes 3.5 orders over lifetime
+
+export function getFinancialMetrics(summaries: ChannelSummary[]): FinancialMetric[] {
+  return summaries.map(s => {
+    const revenue = s.totalRevenue;
+    const spend = s.totalSpend;
+    const profit = (revenue * DEFAULT_MARGIN) - spend;
+    const roi = spend > 0 ? (profit / spend) * 100 : 0;
+    
+    const cac = s.newCustomers > 0 ? spend / s.newCustomers : 0;
+    const aov = s.conversions > 0 ? revenue / s.conversions : 0;
+    const ltv = aov * LTV_MULTIPLIER * DEFAULT_MARGIN;
+    
+    // Payback in terms of "Orders" = CAC / (AOV * Margin)
+    // Convert to "Days" assuming a purchase cycle (simulated)
+    const paybackOrders = aov > 0 ? cac / (aov * DEFAULT_MARGIN) : 0;
+    const paybackDays = Math.round(paybackOrders * 45); // Assuming 45 days per purchase cycle average
+
+    return {
+      channel: s.channel,
+      spend,
+      revenue,
+      profit,
+      roi,
+      cac,
+      ltv,
+      paybackDays,
+    };
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Cohort Analysis (Simulated Retention)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface CohortData {
+  week: number;
+  retention: number;
+  revenue: number;
+}
+
+/**
+ * Simulates a cohort's revenue decay over 12 weeks for a specific channel.
+ * Uses a decay function that varies by channel profile (e.g., Email is stickier).
+ */
+export function getSimulatedCohort(channel: string, baselineRevenue: number): CohortData[] {
+  // Retention decay factors per channel
+  const stickiness: Record<string, number> = {
+    'Email': 0.85,
+    'SMS': 0.80,
+    'Organic Social': 0.75,
+    'Influencer': 0.65,
+    'Meta Ads': 0.60,
+    'Instagram Reels': 0.60,
+    'Google Search': 0.55,
+    'YouTube': 0.50,
+    'Affiliate': 0.45,
+    'Google Display': 0.35,
+  };
+
+  const factor = stickiness[channel] || 0.5;
+  const cohort: CohortData[] = [];
+  
+  for (let w = 0; w <= 12; w++) {
+    // Week 0 is acquisition (100% of baseline)
+    // Following weeks decay exponentially: Current * (Factor ^ Week)
+    const retention = Math.pow(factor, w);
+    cohort.push({
+      week: w,
+      retention: parseFloat((retention * 100).toFixed(1)),
+      revenue: Math.round(baselineRevenue * retention)
+    });
+  }
+  
+  return cohort;
+}
+

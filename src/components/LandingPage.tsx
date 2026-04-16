@@ -1,0 +1,190 @@
+import { useNavigate } from 'react-router-dom';
+
+const BAR_HEIGHTS = [14, 22, 32, 44, 36, 26, 18, 10];
+const MAX_H = 44;
+
+export function LandingPage() {
+  const navigate = useNavigate();
+
+  return (
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'var(--bg-root)',
+        position: 'relative',
+        overflow: 'hidden',
+        fontFamily: "'Plus Jakarta Sans', sans-serif",
+      }}
+    >
+      {/* Orange glow */}
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: 800,
+          height: 500,
+          background: 'radial-gradient(ellipse at 50% 0%, rgba(232,118,58,0.13), transparent 65%)',
+          pointerEvents: 'none',
+        }}
+      />
+
+      {/* Dot grid */}
+      <div
+        style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundImage:
+            'linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)',
+          backgroundSize: '56px 56px',
+          pointerEvents: 'none',
+        }}
+      />
+
+      {/* Vignette */}
+      <div
+        style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'radial-gradient(ellipse at center, transparent 50%, var(--bg-root) 100%)',
+          pointerEvents: 'none',
+        }}
+      />
+
+      {/* Content */}
+      <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        {/* Waveform bars */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'flex-end',
+            gap: 4,
+            height: MAX_H,
+            marginBottom: 24,
+            animation: 'pu-fade-up 0.8s cubic-bezier(0.16,1,0.3,1) 0s both',
+          }}
+        >
+          {BAR_HEIGHTS.map((h, i) => (
+            <div
+              key={i}
+              style={{
+                width: 4,
+                height: h,
+                borderRadius: 2,
+                backgroundColor: i === 3 ? '#E8763A' : 'var(--text-muted)',
+              }}
+            />
+          ))}
+        </div>
+
+        {/* Wordmark */}
+        <h1
+          style={{
+            fontFamily: "'Outfit', sans-serif",
+            fontSize: 'clamp(4rem, 9vw, 8rem)',
+            fontWeight: 800,
+            color: 'var(--text-primary)',
+            letterSpacing: '-0.04em',
+            lineHeight: 1,
+            margin: 0,
+            animation: 'pu-fade-up 0.8s cubic-bezier(0.16,1,0.3,1) 0.1s both',
+          }}
+        >
+          Pulse
+        </h1>
+
+        {/* Byline */}
+        <p
+          style={{
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
+            fontSize: 14,
+            fontWeight: 600,
+            color: '#E8763A',
+            textTransform: 'uppercase',
+            letterSpacing: '0.15em',
+            margin: '16px 0 0',
+            animation: 'pu-fade-up 0.8s cubic-bezier(0.16,1,0.3,1) 0.2s both',
+          }}
+        >
+          by Mosaic Wellness
+        </p>
+
+        {/* Tagline */}
+        <p
+          style={{
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
+            fontSize: '1.2rem',
+            fontWeight: 400,
+            color: 'var(--text-secondary)',
+            letterSpacing: '-0.01em',
+            margin: '32px 0 0',
+            animation: 'pu-fade-up 0.8s cubic-bezier(0.16,1,0.3,1) 0.3s both',
+          }}
+        >
+          Your marketing intelligence, in one place.
+        </p>
+
+        {/* CTA */}
+        <button
+          onClick={() => navigate('/dashboard')}
+          style={{
+            marginTop: 48,
+            background: 'var(--text-primary)',
+            color: 'var(--bg-root)',
+            fontFamily: "'Outfit', sans-serif",
+            fontSize: 15,
+            fontWeight: 700,
+            padding: '16px 36px',
+            borderRadius: 999,
+            border: 'none',
+            cursor: 'pointer',
+            letterSpacing: '0.02em',
+            transition: 'all 0.3s cubic-bezier(0.16,1,0.3,1)',
+            animation: 'pu-fade-up 0.8s cubic-bezier(0.16,1,0.3,1) 0.4s both',
+            boxShadow: '0 8px 24px rgba(240,235,228,0.1)',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-4px)';
+            e.currentTarget.style.boxShadow = '0 16px 40px rgba(240,235,228,0.25), 0 0 20px rgba(232,118,58,0.3)';
+            e.currentTarget.style.background = '#FFFFFF';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = '0 8px 24px rgba(240,235,228,0.1)';
+            e.currentTarget.style.background = 'var(--text-primary)';
+          }}
+        >
+          Launch Dashboard →
+        </button>
+      </div>
+
+      {/* Footer */}
+      <p
+        style={{
+          position: 'fixed',
+          bottom: 24,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          fontSize: 11,
+          color: '#2E2C2A',
+          margin: 0,
+          zIndex: 1,
+        }}
+      >
+        © 2026 Mosaic Wellness
+      </p>
+
+      <style>{`
+        @keyframes pu-fade-up {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+    </div>
+  );
+}

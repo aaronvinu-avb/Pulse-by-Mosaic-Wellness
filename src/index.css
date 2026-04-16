@@ -1,0 +1,187 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* --- Dynamic Theme Variables (Light Mode Default) --- */
+    --bg-root: #F3F4F6;
+    --bg-card: #FFFFFF;
+    --border-subtle: #E5E7EB;
+    --border-strong: #D1D5DB;
+    --text-primary: #111827;
+    --text-secondary: #4B5563;
+    --text-muted: #9CA3AF;
+    --alert-bg-1: #ECFDF5;
+    --alert-bg-2: #F0FDF4;
+
+    /* Backgrounds — warm editorial dark (Legacy/Tailwind) */
+    --background: 0 0% 6%;
+    --foreground: 30 15% 91%;
+    --card: 18 12% 8%;
+    --card-foreground: 30 15% 91%;
+    --popover: 0 0% 6%;
+    --popover-foreground: 30 15% 91%;
+
+    /* Brand — burnt amber */
+    --primary: 22 79% 56%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 120 18% 49%;
+    --secondary-foreground: 0 0% 100%;
+
+    /* Muted */
+    --muted: 25 6% 15%;
+    --muted-foreground: 25 7% 37%;
+
+    /* Accent — warm gold */
+    --accent: 33 46% 56%;
+    --accent-foreground: 0 0% 100%;
+
+    /* Destructive */
+    --destructive: 6 35% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Success */
+    --success: 120 18% 49%;
+    --success-foreground: 0 0% 100%;
+
+    /* Border / Input */
+    --border: 30 8% 16%;
+    --border-strong: 28 6% 20%;
+    --input: 20 10% 7%;
+    --ring: 22 79% 56%;
+
+    --radius: 0.75rem;
+
+    /* Surfaces extended */
+    --surface-2: 25 9% 11%;
+    --surface-3: 30 10% 14%;
+
+    /* Sidebar */
+    --sidebar-background: 0 0% 6%;
+    --sidebar-foreground: 30 15% 91%;
+    --sidebar-primary: 22 79% 56%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 25 9% 11%;
+    --sidebar-accent-foreground: 30 15% 91%;
+    --sidebar-border: 25 9% 11%;
+    --sidebar-ring: 22 79% 56%;
+
+    /* Semantic colours */
+    --amber: 22 79% 56%;
+    --amber-dim: 22 79% 56% / 0.12;
+    --sage: 120 18% 49%;
+    --sage-dim: 120 18% 49% / 0.12;
+    --gold: 33 46% 56%;
+    --gold-dim: 33 46% 56% / 0.12;
+    --slate-accent: 206 17% 48%;
+    --slate-dim: 206 17% 48% / 0.12;
+    --negative: 6 35% 60%;
+    --negative-dim: 6 35% 60% / 0.12;
+    --warning: 33 46% 56%;
+
+    /* Elevation — warm tinted */
+    --shadow-xs: 0 1px 2px rgba(0,0,0,0.3);
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.3), 0 4px 12px rgba(0,0,0,0.2);
+    --shadow-md: 0 4px 8px rgba(0,0,0,0.4), 0 12px 32px rgba(0,0,0,0.3);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,0.5);
+
+    /* Motion */
+    --ease: cubic-bezier(0.16, 1, 0.3, 1);
+    --duration: 200ms;
+
+    /* Shape */
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-full: 9999px;
+  }
+
+  .dark {
+    /* --- Dynamic Theme Variables (Dark Mode) --- */
+    --bg-root: #0E0F0F;
+    --bg-card: #161412;
+    --border-subtle: #1C1917;
+    --border-strong: #2C2A26;
+    --text-primary: #F0EBE4;
+    --text-secondary: #9B9490;
+    --text-muted: #6B6762;
+    --alert-bg-1: #1C1917;
+    --alert-bg-2: #0A0908;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    background-color: var(--bg-root);
+    color: var(--text-secondary);
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Outfit', sans-serif;
+    color: var(--text-primary);
+    transition: color 0.3s ease;
+  }
+}
+
+/* Custom scrollbar */
+.overflow-auto::-webkit-scrollbar,
+main::-webkit-scrollbar {
+  width: 6px;
+}
+.overflow-auto::-webkit-scrollbar-track,
+main::-webkit-scrollbar-track {
+  background: transparent;
+}
+.overflow-auto::-webkit-scrollbar-thumb,
+main::-webkit-scrollbar-thumb {
+  background: #2C2A26;
+  border-radius: 9999px;
+}
+.overflow-auto::-webkit-scrollbar-thumb:hover,
+main::-webkit-scrollbar-thumb:hover {
+  background: #3A3835;
+}
+
+/* Shimmer skeleton */
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.skeleton-shimmer {
+  background: linear-gradient(90deg, var(--border-subtle) 25%, var(--border-strong) 50%, var(--border-subtle) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+/* Pulsing dot */
+@keyframes pulse-dot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.5); opacity: 0.4; }
+}
+.pulse-dot {
+  animation: pulse-dot 2s infinite;
+}
+
+/* Count-up helper */
+@keyframes count-up-fade {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Card entry stagger */
+@keyframes card-enter {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.card-enter {
+  animation: card-enter 360ms var(--ease) both;
+}
