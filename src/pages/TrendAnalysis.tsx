@@ -56,16 +56,19 @@ const darkCard = (delay = '0ms') => ({
   onMouseLeave: (e: React.MouseEvent<HTMLDivElement>) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'var(--shadow-sm)'; e.currentTarget.style.borderColor = 'var(--border-strong)'; },
 });
 
-const CustomLegend = memo(({ payload }: any) => (
+type LegendPayloadEntry = { value: string };
+type SpikeRow = { week: string; revenue: number; avg: number | null; spike: boolean; dip: boolean };
+
+const CustomLegend = memo(({ payload }: { payload?: LegendPayloadEntry[] }) => (
   <div className="flex flex-wrap gap-3 justify-center mt-2">
-    {payload?.map((entry: any, i: number) => (
+    {payload?.map((entry, i: number) => (
       <ChannelName key={i} channel={entry.value} style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 12, color: 'var(--text-secondary)' }} />
     ))}
   </div>
 ));
 
 export default function TrendAnalysis() {
-  const { data, isLoading } = useMarketingData();
+  const { data, aggregate, isLoading } = useMarketingData({ includeGlobalAggregate: true });
   const [metric, setMetric] = useState<Metric>('roas');
   const [selectedYears, setSelectedYears] = useState<Set<number>>(new Set([2023, 2024, 2025]));
   const [selectedSeasonChannel, setSelectedSeasonChannel] = useState<string>(CHANNELS[5]); // Email default
@@ -140,11 +143,17 @@ export default function TrendAnalysis() {
     }
 
     // Fallback if aggregate not available (e.g. initial load)
-    return { grid: {} as any, bestDay: '', worstDay: '', bestDayRoas: 0, worstDayRoas: 0 };
+    return {
+      grid: {} as Record<string, Record<string, { spend: number; revenue: number; count: number }>>,
+      bestDay: '',
+      worstDay: '',
+      bestDayRoas: 0,
+      worstDayRoas: 0,
+    };
   }, [aggregate]);
 
   const spikeData = useMemo(() => {
-    if (!data) return { weeklyChart: [] as any[], periods: [] as any[], spikeMonth: '' };
+    if (!data) return { weeklyChart: [] as SpikeRow[], periods: [] as { week: string; revenue: number; avg: number; pctDiff: number; type: 'Spike' | 'Dip' }[], spikeMonth: '' };
     const dayMap = new Map<string, number>();
     for (const r of data) dayMap.set(r.date, (dayMap.get(r.date) || 0) + r.revenue);
     const sorted = Array.from(dayMap.entries()).sort(([a], [b]) => a.localeCompare(b));
@@ -162,7 +171,7 @@ export default function TrendAnalysis() {
     const chartRows = weeks.map((w, idx) => {
       let avg = 0;
       if (idx >= 4) avg = (weeks[idx - 1].revenue + weeks[idx - 2].revenue + weeks[idx - 3].revenue + weeks[idx - 4].revenue) / 4;
-      const row: any = { week: w.week, revenue: w.revenue, avg: idx >= 4 ? avg : null, spike: false, dip: false };
+      const row: SpikeRow = { week: w.week, revenue: w.revenue, avg: idx >= 4 ? avg : null, spike: false, dip: false };
       if (idx >= 4 && avg > 0) {
         const pct = ((w.revenue - avg) / avg) * 100;
         if (w.revenue > avg * 1.3) { row.spike = true; periods.push({ week: w.week, revenue: w.revenue, avg, pctDiff: parseFloat(pct.toFixed(1)), type: 'Spike' }); }
@@ -243,7 +252,7 @@ export default function TrendAnalysis() {
         </div>
         <button 
           onClick={() => exportToCSV(chartData.map(row => {
-            const cleanRow: any = { Month: row.month };
+            const cleanRow: Record<string, string | number> = { Month: String(row.month) };
             CHANNELS.forEach(ch => {
               cleanRow[ch] = row[ch];
             });

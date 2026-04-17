@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 
-const BAR_HEIGHTS = [14, 22, 32, 44, 36, 26, 18, 10];
-const MAX_H = 44;
+const ICON_SIZE = 72;
 
 export function LandingPage() {
   const navigate = useNavigate();
@@ -58,28 +57,20 @@ export function LandingPage() {
 
       {/* Content */}
       <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        {/* Waveform bars */}
+        {/* Luma mark */}
         <div
           style={{
-            display: 'flex',
-            alignItems: 'flex-end',
-            gap: 4,
-            height: MAX_H,
+            width: ICON_SIZE,
+            height: ICON_SIZE,
             marginBottom: 24,
             animation: 'pu-fade-up 0.8s cubic-bezier(0.16,1,0.3,1) 0s both',
           }}
         >
-          {BAR_HEIGHTS.map((h, i) => (
-            <div
-              key={i}
-              style={{
-                width: 4,
-                height: h,
-                borderRadius: 2,
-                backgroundColor: i === 3 ? '#E8763A' : 'var(--text-muted)',
-              }}
-            />
-          ))}
+          <svg width={ICON_SIZE} height={ICON_SIZE} viewBox="0 0 72 72" fill="none">
+            <circle cx="36" cy="36" r="30" fill="#2A2825" />
+            <path d="M24 21V51H31V37L45 51H54L38 33.5L52 21H42L31 30V21H24Z" fill="#E8763A" />
+            <circle cx="49.5" cy="21.5" r="3.2" fill="#4A4640" />
+          </svg>
         </div>
 
         {/* Wordmark */}

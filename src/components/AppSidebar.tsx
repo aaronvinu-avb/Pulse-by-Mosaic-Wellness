@@ -16,7 +16,7 @@ import {
   Trophy,
   DollarSign
 } from "lucide-react";
-import { PulseLogo } from '@/components/PulseLogo';
+import { LumaLogo } from '@/components/LumaLogo';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import {
@@ -70,7 +70,7 @@ export function AppSidebar() {
       <SidebarContent style={{ backgroundColor: 'var(--bg-root)', borderRight: '1px solid var(--border-subtle)' }}>
         <SidebarHeader className="p-5 pb-2 text-[var(--text-primary)]">
           <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 12, width: '100%', overflow: 'hidden' }}>
-            <PulseLogo scale={1.1} showWordmark={true} />
+            <LumaLogo scale={1.1} showWordmark={true} />
           </div>
           <p style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: 'var(--text-muted)', fontWeight: 500, letterSpacing: '0.02em', marginTop: 4 }}>by Mosaic Wellness</p>
           <div style={{ borderBottom: '1px solid var(--border-subtle)', marginTop: 18 }} />

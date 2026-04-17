@@ -12,6 +12,7 @@ import { ArrowUpDown, TrendingDown } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
+import type { CSSProperties } from 'react';
 
 type SortKey = 'channel' | 'totalSpend' | 'totalRevenue' | 'roas' | 'cpa';
 
@@ -25,9 +26,12 @@ const chartTooltipStyle = {
   labelStyle: { color: 'var(--text-secondary)' },
 };
 
-const CustomLegend = memo(({ payload }: any) => (
+type LegendPayloadEntry = { value: string };
+type TooltipEntry = { dataKey: string; color: string; value: number };
+
+const CustomLegend = memo(({ payload }: { payload?: LegendPayloadEntry[] }) => (
   <div className="flex flex-wrap gap-3 justify-center mt-2">
-    {payload?.map((entry: any, i: number) => (
+    {payload?.map((entry, i: number) => (
       <ChannelName key={i} channel={entry.value} style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 12, color: 'var(--text-secondary)' }} />
     ))}
   </div>
@@ -233,10 +237,10 @@ export default function ChannelPerformance() {
                 if (!active || !payload || !payload.length) return null;
                 const multNum = parseFloat(String(label || '').replace('x', ''));
                 return (
-                  <div style={{ ...chartTooltipStyle.contentStyle, padding: '12px 16px' } as any}>
+                  <div style={{ ...chartTooltipStyle.contentStyle, padding: '12px 16px' } as CSSProperties}>
                     <p style={{ fontWeight: 700, margin: '0 0 10px 0', color: 'var(--text-primary)' }}>Target: {label} Baseline</p>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {payload.map((entry: any) => {
+                      {(payload as TooltipEntry[]).map((entry) => {
                         const channel = entry.dataKey;
                         const summary = summaryByChannel[channel];
                         const absoluteSpend = ((summary?.totalSpend || 0) / timeFrameMonths) * multNum;

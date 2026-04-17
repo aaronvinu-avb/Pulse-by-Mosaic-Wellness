@@ -2,7 +2,7 @@
  * Utility to export an array of objects to a CSV file.
  * Handles basic escaping and triggers a browser download.
  */
-export function exportToCSV(data: any[], filename: string) {
+export function exportToCSV(data: Array<Record<string, unknown>>, filename: string) {
   if (!data || !data.length) return;
 
   const headers = Object.keys(data[0]);

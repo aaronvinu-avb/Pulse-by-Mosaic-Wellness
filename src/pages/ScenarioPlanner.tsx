@@ -21,11 +21,12 @@ const chartTooltipStyle = {
   labelStyle: { color: 'var(--text-secondary)' },
 };
 
+const SCENARIO_BUDGETS = [3000000, 5000000, 8000000];
+
 export default function ScenarioPlanner() {
   const { data, isLoading } = useMarketingData();
   const [marketMultiplier, setMarketMultiplier] = useState(1.0);
 
-  const budgets = [3000000, 5000000, 8000000];
   const scenarioLabels = ['Conservative', 'Target (AI)', 'Aggressive'];
   const scenarioIcons = [Shield, Zap, TrendingUp];
   const scenarioColors = ['#60A5FA', '#E8803A', '#A78BFA'];
@@ -39,14 +40,13 @@ export default function ScenarioPlanner() {
   }, [marketMultiplier]);
 
   const scenarios = useMemo(() => 
-    models.length > 0 ? computeScenarios(models, budgets, new Set(), globalMultipliers) : [],
-  [models, marketMultiplier]);
+    models.length > 0 ? computeScenarios(models, SCENARIO_BUDGETS, new Set(), globalMultipliers) : [],
+  [models, globalMultipliers]);
 
   const projectionData = useMemo(() => {
     if (scenarios.length < 3) return [];
     const results = [];
     for (let day = 1; day <= 30; day++) {
-      const dailyWeights = day / 30;
       results.push({
         day: `Day ${day}`,
         conservative: Math.round((scenarios[0].revenue / 30) * day),

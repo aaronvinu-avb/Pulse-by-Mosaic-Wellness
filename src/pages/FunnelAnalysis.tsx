@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useMarketingData } from '@/hooks/useMarketingData';
 import { DashboardSkeleton } from '@/components/DashboardSkeleton';
 import { ChannelName } from '@/components/ChannelName';
-import { CHANNELS, CHANNEL_COLORS } from '@/lib/mockData';
+import { CHANNELS, CHANNEL_COLORS, MarketingRecord } from '@/lib/mockData';
 import { formatINRCompact } from '@/lib/formatCurrency';
 
 interface FunnelMetrics {
@@ -13,7 +13,7 @@ interface FunnelMetrics {
   newCustomers: number;
 }
 
-function aggregateMetrics(data: any[], channel?: string): FunnelMetrics {
+function aggregateMetrics(data: MarketingRecord[], channel?: string): FunnelMetrics {
   const filtered = channel ? data.filter(r => r.channel === channel) : data;
   return filtered.reduce(
     (acc, r) => ({
@@ -84,7 +84,7 @@ export default function FunnelAnalysis() {
           value={selectedChannel}
           onChange={e => setSelectedChannel(e.target.value)}
           className="rounded-lg px-3 py-2 w-full sm:w-56 focus:outline-none focus:ring-2"
-          style={{ border: '1px solid rgba(255,255,255,0.1)', fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: 'var(--text-secondary)', backgroundColor: 'var(--bg-root)' } as any}
+          style={{ border: '1px solid rgba(255,255,255,0.1)', fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: 'var(--text-secondary)', backgroundColor: 'var(--bg-root)' }}
         >
           <option value="">All Channels (Combined)</option>
           {CHANNELS.map(ch => <option key={ch} value={ch}>{ch}</option>)}

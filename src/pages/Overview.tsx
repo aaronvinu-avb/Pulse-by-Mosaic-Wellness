@@ -118,7 +118,17 @@ export default function Overview() {
 
   const blendedCAC = totals.customers > 0 ? totals.spend / totals.customers : 0;
 
-  const metrics = [
+  type MetricCard = {
+    label: string;
+    value: string;
+    sub: string;
+    subColor: string;
+    accent: string;
+    size: number;
+    valueColor?: string;
+  };
+
+  const metrics: MetricCard[] = [
     { label: 'TOTAL REVENUE', value: formatINRCompact(totals.revenue), sub: yoyLabel, subColor: yoyLabel.includes('not shown') ? 'var(--text-muted)' : (yoyGrowth >= 0 ? '#34D399' : '#F87171'), accent: '#34D399', size: 40 },
     { label: 'BLENDED CAC', value: formatINR(blendedCAC), sub: 'acquisition cost per customer', subColor: '#FBBF24', accent: '#FBBF24', size: 36, valueColor: '#FBBF24' },
     { label: 'MONTHLY OPPORTUNITY', value: formatINRCompact(opportunityGap), sub: 'unlocked via AI optimizer', subColor: 'var(--text-muted)', accent: '#34D399', size: 32, valueColor: '#34D399' },
@@ -196,7 +206,7 @@ export default function Overview() {
             {metrics.map((m, i) => (
               <div key={m.label} style={{ padding: '20px 0 20px 12px', borderBottom: i < metrics.length - 1 ? '1px solid var(--border-subtle)' : 'none', borderLeft: `3px solid ${m.accent}` }}>
                 <p style={{ fontFamily: 'Outfit', fontSize: 9, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{m.label}</p>
-                <p style={{ fontFamily: 'Outfit', fontSize: m.size, fontWeight: 800, color: (m as any).valueColor || 'var(--text-primary)', letterSpacing: '-0.04em', lineHeight: 1, marginTop: 8 }}>{m.value}</p>
+                <p style={{ fontFamily: 'Outfit', fontSize: m.size, fontWeight: 800, color: m.valueColor || 'var(--text-primary)', letterSpacing: '-0.04em', lineHeight: 1, marginTop: 8 }}>{m.value}</p>
                 <p style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 12, color: m.subColor, marginTop: 6 }}>{m.sub}</p>
               </div>
             ))}

@@ -20,7 +20,21 @@ function getQuadrant(spend: number, roas: number, medSpend: number, medRoas: num
   return { label: 'Pivot Required', icon: Scissors, color: '#94A3B8' };
 }
 
-const CustomTooltip = ({ active, payload, medSpend, medRoas }: any) => {
+interface MatrixPoint {
+  channel: string;
+  spend: number;
+  roas: number;
+  color: string;
+}
+
+interface MatrixTooltipProps {
+  active?: boolean;
+  payload?: Array<{ payload: MatrixPoint }>;
+  medSpend: number;
+  medRoas: number;
+}
+
+const CustomTooltip = ({ active, payload, medSpend, medRoas }: MatrixTooltipProps) => {
   if (!active || !payload?.[0]) return null;
   const d = payload[0].payload;
   const quad = getQuadrant(d.spend, d.roas, medSpend, medRoas);

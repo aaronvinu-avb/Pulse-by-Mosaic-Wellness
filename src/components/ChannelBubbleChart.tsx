@@ -12,7 +12,20 @@ interface Props {
   summaries: ChannelSummary[];
 }
 
-const CustomTooltip = ({ active, payload }: any) => {
+interface BubblePoint {
+  channel: string;
+  spend: number;
+  roas: number;
+  customers: number;
+  color: string;
+}
+
+interface BubbleTooltipProps {
+  active?: boolean;
+  payload?: Array<{ payload: BubblePoint }>;
+}
+
+const CustomTooltip = ({ active, payload }: BubbleTooltipProps) => {
   if (!active || !payload?.[0]) return null;
   const d = payload[0].payload;
   return (

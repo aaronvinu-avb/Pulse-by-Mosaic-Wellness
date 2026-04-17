@@ -67,7 +67,9 @@ export default function BudgetTracker() {
   const track = channelSpends.filter(c => c.status === 'track').sort((a,b) => b.projectedSpend - a.projectedSpend);
   const surplus = channelSpends.filter(c => c.status === 'surplus').sort((a,b) => b.projectedSpend - a.projectedSpend);
 
-  const renderChannelRow = (row: any) => (
+  type ChannelSpendRow = (typeof channelSpends)[number];
+
+  const renderChannelRow = (row: ChannelSpendRow) => (
     <div key={row.channel} style={{
       display: 'grid', gridTemplateColumns: '180px 180px 1fr 120px', alignItems: 'center', gap: 20,
       padding: '16px 20px', borderBottom: '1px solid var(--border-subtle)', backgroundColor: 'transparent',

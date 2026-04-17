@@ -343,7 +343,7 @@ export function getOptimalAllocationNonLinear(
   CHANNELS.forEach(ch => (absoluteSpend[ch] = 0));
 
   let active = models.filter(m => !excludedChannels.has(m.channel));
-  let remainingBudget = budget;
+  const remainingBudget = budget;
 
   // We optimize: Maximize Σ (alpha_i * multiplier_i) * ln(x_i + 1)
   // KKT condition: (alpha_i * multiplier_i) / (x_i + 1) = lambda

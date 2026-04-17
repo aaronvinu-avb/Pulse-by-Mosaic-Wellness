@@ -2,7 +2,7 @@
  * Simple IndexedDB wrapper for caching large datasets
  */
 
-const DB_NAME = 'pulse-marketing-db';
+const DB_NAME = 'luma-marketing-db';
 const STORE_NAME = 'marketing-cache';
 const DB_VERSION = 1;
 
