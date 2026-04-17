@@ -242,8 +242,8 @@ export default function TrendAnalysis() {
   });
 
   return (
-    <div className="space-y-6" style={{ maxWidth: 1280 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+    <div className="mobile-page trend-page space-y-6" style={{ maxWidth: 1280 }}>
+      <div className="mobile-title-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
           <h1 style={{ fontFamily: 'Outfit', fontSize: 26, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.03em', lineHeight: 1.2 }}>
             Trend Analysis

@@ -72,7 +72,7 @@ export default function FunnelAnalysis() {
   ];
 
   return (
-    <div className="space-y-6" style={{ maxWidth: 1280 }}>
+    <div className="mobile-page funnel-page space-y-6" style={{ maxWidth: 1280 }}>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
       <div>
         <h1 style={{ fontFamily: 'Outfit', fontSize: 26, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.03em', lineHeight: 1.2 }}>

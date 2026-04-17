@@ -269,9 +269,9 @@ export default function MixOptimizer() {
   });
 
   return (
-    <div className="space-y-6" style={{ maxWidth: 1320 }}>
+    <div className="mobile-page mix-page space-y-6" style={{ maxWidth: 1320 }}>
       {/* Header with Export */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <div className="mobile-title-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
           <h1 style={{ fontFamily: 'Outfit', fontSize: 26, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.03em', lineHeight: 1.2 }}>
             Marketing Mix Optimizer
@@ -376,7 +376,7 @@ export default function MixOptimizer() {
       )}
 
       {/* ── Top KPIs ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+      <div className="mix-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
         {[
           { label: 'Projected Revenue', value: formatINRCompact(projectedRevenue), color: 'var(--text-primary)', accent: '#34D399' },
           { label: 'Projected ROAS', value: `${projectedROAS.toFixed(2)}x`, color: '#E8803A', accent: '#E8803A' },
@@ -400,7 +400,7 @@ export default function MixOptimizer() {
 
       {/* ════════════════ OPTIMIZER TAB ════════════════ */}
       {activeTab === 'optimizer' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+        <div className="mix-optimizer-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
           {/* Sliders */}
           <div style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-strong)', borderRadius: 16, padding: 24 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
@@ -579,7 +579,7 @@ export default function MixOptimizer() {
           {insights.length === 0 ? (
             <p style={{ color: 'var(--text-muted)', fontFamily: 'Plus Jakarta Sans' }}>Loading insights…</p>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div className="mix-insights-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
               {insights.map((ins, i) => (
                 <div key={i} style={{ backgroundColor: PRIORITY_BG[ins.priority], border: `1px solid ${PRIORITY_COLORS[ins.priority]}30`, borderLeft: `3px solid ${PRIORITY_COLORS[ins.priority]}`, borderRadius: 14, padding: '18px 20px' }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 10 }}>
@@ -608,7 +608,7 @@ export default function MixOptimizer() {
 
       {/* ════════════════ DIMINISHING RETURNS TAB ════════════════ */}
       {activeTab === 'curves' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 20 }}>
+        <div className="mix-curves-grid" style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 20 }}>
           {/* Channel picker */}
           <div style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-strong)', borderRadius: 16, padding: 16, display: 'flex', flexDirection: 'column', gap: 4 }}>
             <p style={{ fontFamily: 'Outfit', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Select Channel</p>

@@ -60,8 +60,8 @@ export default function ScenarioPlanner() {
   if (isLoading) return <DashboardSkeleton />;
 
   return (
-    <div className="space-y-8" style={{ maxWidth: 1280 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+    <div className="mobile-page scenario-page space-y-8" style={{ maxWidth: 1280 }}>
+      <div className="mobile-title-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
         <div>
           <h1 style={{ fontFamily: 'Outfit', fontSize: 26, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.03em', lineHeight: 1.2 }}>
             Scenario Planner
@@ -99,7 +99,7 @@ export default function ScenarioPlanner() {
       </div>
 
       {/* Triple Scenario Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+      <div className="scenario-cards-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
         {scenarios.map((s, i) => {
           const Icon = scenarioIcons[i];
           const color = scenarioColors[i];
@@ -179,7 +179,7 @@ export default function ScenarioPlanner() {
         </ResponsiveContainer>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
+      <div className="scenario-bottom-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
         <div style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-strong)', borderRadius: 20, padding: 24 }}>
           <h2 style={{ fontFamily: 'Outfit', fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 16 }}>AI Strategic Advisory</h2>
           <div style={{ padding: 16, borderRadius: 12, backgroundColor: 'rgba(232,128,58,0.05)', border: '1px solid rgba(232,128,58,0.1)' }}>

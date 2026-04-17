@@ -25,16 +25,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <div className="flex-1 flex flex-col min-w-0">
           {/* Header */}
           <header
-            className="h-14 flex items-center justify-between shrink-0 px-8"
+            className="app-header h-14 flex items-center justify-between shrink-0 px-8"
             style={{ backgroundColor: 'var(--bg-root)', borderBottom: '1px solid var(--border-subtle)' }}
           >
-            <div className="flex items-center gap-3">
+            <div className="app-header-left flex items-center gap-3">
               <SidebarTrigger className="mr-1" style={{ color: 'var(--text-muted)' }} />
               <span style={{ fontFamily: 'Outfit', fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)' }}>
                 {pageName}
               </span>
             </div>
               <select
+                className="app-header-filter"
                 value={dateFilter}
                 onChange={(e) => setDateFilter(e.target.value as DateFilterType)}
                 style={{
@@ -58,7 +59,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </select>
 
               <div
-                className="flex items-center gap-2"
+                className="app-header-status flex items-center gap-2"
                 style={{
                   backgroundColor: 'var(--bg-surface)',
                   border: '1px solid var(--border-subtle)',
@@ -74,7 +75,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 Live · All channels active
               </div>
           </header>
-          <main className="flex-1 overflow-auto" style={{ padding: 32 }}>
+          <main className="app-main flex-1 overflow-auto" style={{ padding: 32 }}>
             {children}
           </main>
         </div>

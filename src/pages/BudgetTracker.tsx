@@ -109,9 +109,9 @@ export default function BudgetTracker() {
   const statusColor = projected > TOTAL_BUDGET * 1.05 ? '#EF4444' : projected < TOTAL_BUDGET * 0.95 ? '#3B82F6' : '#10B981';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingBottom: 40 }}>
+    <div className="mobile-page budget-page" style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingBottom: 40 }}>
       {/* Header & Controls */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="mobile-title-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 style={{ fontFamily: 'Outfit', fontSize: 28, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.03em', margin: 0 }}>Budget Tracker</h1>
           <p style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>{monthName} Pacing Analytics</p>
@@ -129,7 +129,7 @@ export default function BudgetTracker() {
       </div>
 
       {/* Top Split Panel */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(400px, 1.2fr) 1fr', gap: 20 }}>
+      <div className="budget-top-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(400px, 1.2fr) 1fr', gap: 20 }}>
         {/* Macro View */}
         <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: 16, padding: '24px 28px', border: '1px solid var(--border-subtle)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -157,7 +157,7 @@ export default function BudgetTracker() {
         </div>
 
         {/* Velocity & Burn */}
-        <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: 16, padding: '24px 28px', border: '1px solid var(--border-subtle)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+        <div className="budget-velocity-grid" style={{ backgroundColor: 'var(--bg-card)', borderRadius: 16, padding: '24px 28px', border: '1px solid var(--border-subtle)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
               {dailyBurnRate > idealDailyBurn ? <TrendingUp size={16} color="#EF4444" /> : <TrendingDown size={16} color="#3B82F6" />}

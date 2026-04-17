@@ -56,7 +56,7 @@ export function LandingPage() {
       />
 
       {/* Content */}
-      <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <div className="landing-content" style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         {/* Luma mark */}
         <div
           style={{

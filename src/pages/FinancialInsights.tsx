@@ -63,7 +63,7 @@ export default function FinancialInsights() {
   if (isLoading) return <DashboardSkeleton />;
 
   return (
-    <div className="space-y-8" style={{ maxWidth: 1200 }}>
+    <div className="mobile-page financial-page space-y-8" style={{ maxWidth: 1200 }}>
       {/* Header */}
       <div>
         <h1 style={{ fontFamily: 'Outfit', fontSize: 26, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
@@ -83,7 +83,7 @@ export default function FinancialInsights() {
           <div style={{ width: 4, height: 20, backgroundColor: 'var(--text-secondary)', borderRadius: 2 }} />
           <h2 style={{ fontFamily: 'Outfit', fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Observed Performance (Historical)</h2>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
+        <div className="financial-summary-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
           {[
             { label: 'Total Spend', value: formatINRCompact(totals.spend), sub: 'Actual historical deployment', icon: Wallet, color: '#60A5FA' },
             { label: 'Blended CAC', value: formatINR(blendedCAC), sub: 'Effective cost per customer', icon: Users, color: '#FBBF24' },
@@ -108,7 +108,7 @@ export default function FinancialInsights() {
           <div style={{ width: 4, height: 20, backgroundColor: '#E8803A', borderRadius: 2 }} />
           <h2 style={{ fontFamily: 'Outfit', fontSize: 13, fontWeight: 700, color: '#E8803A', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Pro Forma Projections (Estimated)</h2>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16, marginBottom: 20 }}>
+        <div className="financial-summary-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16, marginBottom: 20 }}>
           {[
             { label: 'Net Contribution', value: formatINRCompact(totals.profit), sub: 'Modeled post-marketing profit', icon: TrendingUp, color: '#34D399' },
             { label: 'Portfolio ROI', value: `${((totals.profit / totals.spend) * 100).toFixed(1)}%`, sub: 'Efficiency multiplier', icon: ArrowUpRight, color: '#E8803A' },

@@ -137,14 +137,14 @@ export default function Overview() {
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 56px - 64px)', overflow: 'hidden' }}>
+    <div className="mobile-page overview-page" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 56px - 64px)', overflow: 'hidden' }}>
       {/* Header */}
-      <div style={{ marginBottom: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <div className="overview-title-row" style={{ marginBottom: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
-          <h1 style={{ fontFamily: 'Outfit', fontSize: 30, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.035em', margin: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <h1 className="overview-title" style={{ fontFamily: 'Outfit', fontSize: 30, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.035em', margin: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
             Luma Dashboard
             {dataSource !== 'loading' && (
-              <span style={{
+              <span className="overview-source-badge" style={{
                 fontFamily: 'Outfit', fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 6,
                 backgroundColor: dataSource === 'api' ? 'rgba(52,211,153,0.12)' : 
                                dataSource === 'cached' ? 'rgba(96,165,250,0.12)' : 
@@ -163,6 +163,7 @@ export default function Overview() {
           <p style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: 'var(--text-muted)', letterSpacing: '0.01em', marginTop: 6 }}>Marketing intelligence across 10 channels · Jan 2023 – Dec 2025</p>
         </div>
         <button 
+          className="overview-export-btn flex items-center gap-2 px-4 py-2 rounded-xl transition-all hover:scale-105 active:scale-95"
           onClick={() => exportToCSV(summaries.map(s => ({
             Channel: s.channel,
             Spend: s.totalSpend,
@@ -171,7 +172,6 @@ export default function Overview() {
             Customers: s.newCustomers,
             Conversions: s.conversions
           })), 'Luma_Channel_Performance')}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl transition-all hover:scale-105 active:scale-95"
           style={{ 
             backgroundColor: 'var(--bg-card)', 
             border: '1px solid var(--border-strong)', 
@@ -190,10 +190,10 @@ export default function Overview() {
       <div style={{ borderBottom: '1px solid var(--border-subtle)', marginBottom: 20 }} />
 
       {/* Main grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr', gap: 20, flex: 1, minHeight: 0 }}>
+      <div className="overview-main-grid" style={{ display: 'grid', gridTemplateColumns: '340px 1fr', gap: 20, flex: 1, minHeight: 0 }}>
 
         {/* Left KPI panel */}
-        <div style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 16, padding: 28, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%', overflow: 'hidden' }}>
+        <div className="overview-kpi-panel" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 16, padding: 28, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%', overflow: 'hidden' }}>
           <p style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: 'var(--text-muted)' }}>
             {dateFilter === 'all' ? 'Jan 2023 – Dec 2025' : 
              dateFilter === '2025' ? 'Year 2025' :
@@ -204,9 +204,9 @@ export default function Overview() {
           </p>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
             {metrics.map((m, i) => (
-              <div key={m.label} style={{ padding: '20px 0 20px 12px', borderBottom: i < metrics.length - 1 ? '1px solid var(--border-subtle)' : 'none', borderLeft: `3px solid ${m.accent}` }}>
+              <div key={m.label} className="overview-kpi-item" style={{ padding: '20px 0 20px 12px', borderBottom: i < metrics.length - 1 ? '1px solid var(--border-subtle)' : 'none', borderLeft: `3px solid ${m.accent}` }}>
                 <p style={{ fontFamily: 'Outfit', fontSize: 9, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{m.label}</p>
-                <p style={{ fontFamily: 'Outfit', fontSize: m.size, fontWeight: 800, color: m.valueColor || 'var(--text-primary)', letterSpacing: '-0.04em', lineHeight: 1, marginTop: 8 }}>{m.value}</p>
+                <p className="overview-kpi-value" style={{ fontFamily: 'Outfit', fontSize: m.size, fontWeight: 800, color: m.valueColor || 'var(--text-primary)', letterSpacing: '-0.04em', lineHeight: 1, marginTop: 8 }}>{m.value}</p>
                 <p style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 12, color: m.subColor, marginTop: 6 }}>{m.sub}</p>
               </div>
             ))}
@@ -220,7 +220,7 @@ export default function Overview() {
             {/* Opportunity Alert */}
             {opportunityGap > 0 && (
               <>
-              <div style={{
+              <div className="overview-alert-row" style={{
                 background: 'linear-gradient(90deg, var(--alert-bg-1), var(--alert-bg-2))',
                 border: '1px solid var(--border-strong)', borderRadius: 12, padding: '14px 20px',
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -249,7 +249,7 @@ export default function Overview() {
             {/* Channel Table */}
             <div style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 16, overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
               {/* Table header */}
-              <div style={{ backgroundColor: 'var(--border-subtle)', padding: '14px 24px', borderBottom: '1px solid var(--border-strong)', display: 'grid', gridTemplateColumns: '32px 1fr 110px 70px 100px', alignItems: 'center', flexShrink: 0 }}>
+              <div className="overview-table-head" style={{ backgroundColor: 'var(--border-subtle)', padding: '14px 24px', borderBottom: '1px solid var(--border-strong)', display: 'grid', gridTemplateColumns: '32px 1fr 110px 70px 100px', alignItems: 'center', flexShrink: 0 }}>
                 <span />
                 <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>CHANNEL</span>
                 <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'right' }}>REVENUE</span>
@@ -270,6 +270,7 @@ export default function Overview() {
                         onClick={() => setExpandedRow(isExpanded ? null : i)}
                         onMouseEnter={() => setHoveredRow(i)}
                         onMouseLeave={() => setHoveredRow(null)}
+                        className="overview-table-row"
                         style={{
                           display: 'grid', gridTemplateColumns: '32px 1fr 110px 70px 100px', alignItems: 'center',
                           padding: '14px 24px', borderBottom: i < 9 && !isExpanded ? '1px solid var(--border-subtle)' : 'none',
@@ -296,7 +297,7 @@ export default function Overview() {
 
                       {isExpanded && (
                         <div style={{ backgroundColor: 'var(--border-subtle)', borderTop: '1px solid var(--border-strong)', borderBottom: i < 9 ? '1px solid var(--border-subtle)' : 'none', padding: '16px 24px', animation: 'detailSlide 180ms ease' }}>
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                          <div className="overview-details-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
                             {[
                               { label: 'REVENUE', value: formatINRCompact(ch.totalRevenue), color: 'var(--text-primary)' },
                               { label: 'SPEND', value: formatINRCompact(ch.totalSpend), color: 'var(--text-primary)' },

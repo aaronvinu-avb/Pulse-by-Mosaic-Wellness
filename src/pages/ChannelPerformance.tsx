@@ -122,7 +122,7 @@ export default function ChannelPerformance() {
   ];
 
   return (
-    <div className="space-y-6" style={{ maxWidth: 1280 }}>
+    <div className="mobile-page channel-page space-y-6" style={{ maxWidth: 1280 }}>
       <div>
         <h1 style={{ fontFamily: 'Outfit', fontSize: 26, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.03em', lineHeight: 1.2 }}>
           Channel Performance

@@ -109,18 +109,18 @@ export default function BestDays() {
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div className="mobile-page bestdays-page" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <div>
         <h1 style={{ fontFamily: 'Outfit', fontSize: 28, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.03em', margin: 0 }}>Best Days</h1>
         <p style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>Your highest performing days across 3 years</p>
       </div>
 
-      <div style={{ display: 'flex', gap: 16 }}>
+      <div className="bestdays-tables" style={{ display: 'flex', gap: 16 }}>
         {renderTable('Top 10 Best Days', bestDays, 'rgba(232,118,58,0.1)')}
         {renderTable('Worst 10 Days', worstDays, 'rgba(248,113,113,0.1)')}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+      <div className="bestdays-insights-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
         {insights.map((ins, i) => (
           <div key={i} style={{ backgroundColor: 'var(--bg-card)', borderRadius: 12, padding: '20px 24px', border: '1px solid var(--border-subtle)' }}>
             <p style={{ fontFamily: 'Outfit', fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>{ins.label}</p>
