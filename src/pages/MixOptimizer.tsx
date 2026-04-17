@@ -406,108 +406,127 @@ export default function MixOptimizer() {
       </div>
 
       {/* Temporal Context Selector */}
-      <div style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-strong)', borderRadius: 16, padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-        <p style={{ fontFamily: 'Outfit', fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.1em', whiteSpace: 'nowrap' }}>
-          Planning Context:
-        </p>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          {[
-            { value: 'monthly', label: 'Monthly' },
-            { value: 'quarterly', label: 'Quarterly' },
-            { value: 'halfYear', label: 'Half-Year' },
-            { value: 'annual', label: 'Annual' },
-            { value: 'custom', label: 'Custom' },
-          ].map((mode) => (
-            <button
-              key={mode.value}
-              onClick={() => setDurationMode(mode.value as DurationMode)}
-              style={{
-                fontFamily: 'Plus Jakarta Sans',
-                fontSize: 11,
-                fontWeight: 600,
-                padding: '4px 10px',
-                borderRadius: 6,
-                border: durationMode === mode.value ? '1px solid var(--border-strong)' : '1px solid transparent',
-                backgroundColor: durationMode === mode.value ? 'var(--border-subtle)' : 'transparent',
-                color: durationMode === mode.value ? 'var(--text-primary)' : 'var(--text-muted)',
-                cursor: 'pointer',
-                transition: '150ms'
-              }}
-            >
-              {mode.label}
-            </button>
-          ))}
-        </div>
-        <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 4, minWidth: 0, flex: 1 }}>
-          {Array.from({ length: timelineEndYear - timelineStartYear + 1 }, (_, yearOffset) => {
-            const year = timelineStartYear + yearOffset;
-            const yearMonths = timelineMonths.filter((m) => m.year === year);
-            return (
-              <div key={year} style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 240 }}>
-                <p style={{ fontFamily: 'Outfit', fontSize: 10, fontWeight: 700, color: 'var(--text-secondary)', letterSpacing: '0.08em' }}>
-                  {year}
-                </p>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  {yearMonths.map((monthPoint) => {
-                    const isSelected = rangeLookup.has(monthPoint.key);
-                    const isPast = monthPoint.year < currentYear || (monthPoint.year === currentYear && monthPoint.month < currentMonth);
-                    const isAnchor = selectedAnchorMonth === monthPoint.key;
-                    return (
-                      <button
-                        key={monthPoint.key}
-                        onClick={() => {
-                          setSelectedAnchorMonth(monthPoint.key);
-                          if (durationMode === 'custom') {
-                            setCustomStartMonth(monthPoint.key);
-                            setCustomEndMonth(monthPoint.key);
-                          }
-                        }}
-                        style={{
-                          fontFamily: 'Plus Jakarta Sans',
-                          fontSize: 10,
-                          fontWeight: 600,
-                          padding: '4px 8px',
-                          borderRadius: 6,
-                          border: isAnchor ? '1px solid var(--border-strong)' : isSelected ? '1px solid var(--border-subtle)' : '1px solid transparent',
-                          backgroundColor: isSelected ? 'var(--border-subtle)' : 'transparent',
-                          color: isPast && !isSelected ? 'var(--text-muted)' : 'var(--text-primary)',
-                          opacity: isPast && !isSelected ? 0.7 : 1,
-                          cursor: 'pointer',
-                          transition: '150ms'
-                        }}
-                      >
-                        {monthNames[monthPoint.month]}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        {durationMode === 'custom' && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <select
-              value={customStartMonth}
-              onChange={(e) => setCustomStartMonth(e.target.value)}
-              style={{ backgroundColor: 'var(--bg-root)', border: '1px solid var(--border-strong)', borderRadius: 8, color: 'var(--text-primary)', fontFamily: 'Plus Jakarta Sans', fontSize: 11, padding: '6px 8px' }}
-            >
-              {timelineMonths.map((m) => (
-                <option key={`start-${m.key}`} value={m.key}>{`${monthNames[m.month]} ${m.year}`}</option>
-              ))}
-            </select>
-            <span style={{ fontFamily: 'Outfit', fontSize: 10, color: 'var(--text-muted)' }}>to</span>
-            <select
-              value={customEndMonth}
-              onChange={(e) => setCustomEndMonth(e.target.value)}
-              style={{ backgroundColor: 'var(--bg-root)', border: '1px solid var(--border-strong)', borderRadius: 8, color: 'var(--text-primary)', fontFamily: 'Plus Jakarta Sans', fontSize: 11, padding: '6px 8px' }}
-            >
-              {timelineMonths.map((m) => (
-                <option key={`end-${m.key}`} value={m.key}>{`${monthNames[m.month]} ${m.year}`}</option>
-              ))}
-            </select>
+      <div style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-strong)', borderRadius: 16, padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <p style={{ fontFamily: 'Outfit', fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.1em', whiteSpace: 'nowrap' }}>
+            Planning Context:
+          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            {[
+              { value: 'monthly', label: 'Monthly' },
+              { value: 'quarterly', label: 'Quarterly' },
+              { value: 'halfYear', label: 'Half-Year' },
+              { value: 'annual', label: 'Annual' },
+              { value: 'custom', label: 'Custom' },
+            ].map((mode) => (
+              <button
+                key={mode.value}
+                onClick={() => setDurationMode(mode.value as DurationMode)}
+                style={{
+                  fontFamily: 'Plus Jakarta Sans',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  padding: '10px 18px',
+                  borderRadius: 999,
+                  border: durationMode === mode.value ? '1px solid var(--border-strong)' : '1px solid var(--border-subtle)',
+                  backgroundColor: durationMode === mode.value ? 'var(--bg-root)' : 'var(--bg-card)',
+                  color: durationMode === mode.value ? 'var(--text-primary)' : 'var(--text-muted)',
+                  boxShadow: durationMode === mode.value ? 'var(--shadow-sm)' : 'none',
+                  cursor: 'pointer',
+                  transition: '150ms'
+                }}
+              >
+                {mode.label}
+              </button>
+            ))}
           </div>
-        )}
+          {durationMode === 'custom' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <select
+                value={customStartMonth}
+                onChange={(e) => setCustomStartMonth(e.target.value)}
+                style={{ backgroundColor: 'var(--bg-root)', border: '1px solid var(--border-strong)', borderRadius: 8, color: 'var(--text-primary)', fontFamily: 'Plus Jakarta Sans', fontSize: 11, padding: '8px 10px' }}
+              >
+                {timelineMonths.map((m) => (
+                  <option key={`start-${m.key}`} value={m.key}>{`${monthNames[m.month]} ${m.year}`}</option>
+                ))}
+              </select>
+              <span style={{ fontFamily: 'Outfit', fontSize: 10, color: 'var(--text-muted)' }}>to</span>
+              <select
+                value={customEndMonth}
+                onChange={(e) => setCustomEndMonth(e.target.value)}
+                style={{ backgroundColor: 'var(--bg-root)', border: '1px solid var(--border-strong)', borderRadius: 8, color: 'var(--text-primary)', fontFamily: 'Plus Jakarta Sans', fontSize: 11, padding: '8px 10px' }}
+              >
+                {timelineMonths.map((m) => (
+                  <option key={`end-${m.key}`} value={m.key}>{`${monthNames[m.month]} ${m.year}`}</option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+
+        <div style={{ position: 'relative' }}>
+          <div style={{ display: 'flex', gap: 18, overflowX: 'auto', paddingBottom: 6, paddingRight: 20 }}>
+            {Array.from({ length: timelineEndYear - timelineStartYear + 1 }, (_, yearOffset) => {
+              const year = timelineStartYear + yearOffset;
+              const yearMonths = timelineMonths.filter((m) => m.year === year);
+              return (
+                <div key={year} style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 360, flexShrink: 0, borderRight: year < timelineEndYear ? '1px solid var(--border-subtle)' : 'none', paddingRight: 14 }}>
+                  <p style={{ fontFamily: 'Outfit', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '0.08em' }}>
+                    {year}
+                  </p>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'nowrap' }}>
+                    {yearMonths.map((monthPoint) => {
+                      const isSelected = rangeLookup.has(monthPoint.key);
+                      const isPast = monthPoint.year < currentYear || (monthPoint.year === currentYear && monthPoint.month < currentMonth);
+                      const isAnchor = selectedAnchorMonth === monthPoint.key;
+                      return (
+                        <button
+                          key={monthPoint.key}
+                          onClick={() => {
+                            setSelectedAnchorMonth(monthPoint.key);
+                            if (durationMode === 'custom') {
+                              setCustomStartMonth(monthPoint.key);
+                              setCustomEndMonth(monthPoint.key);
+                            }
+                          }}
+                          style={{
+                            fontFamily: 'Plus Jakarta Sans',
+                            fontSize: 11,
+                            fontWeight: 600,
+                            padding: '7px 11px',
+                            borderRadius: 8,
+                            whiteSpace: 'nowrap',
+                            border: isAnchor ? '1px solid var(--border-strong)' : isSelected ? '1px solid var(--border-subtle)' : '1px solid transparent',
+                            backgroundColor: isSelected ? 'var(--border-subtle)' : 'transparent',
+                            color: isPast && !isSelected ? 'var(--text-muted)' : 'var(--text-primary)',
+                            opacity: isPast && !isSelected ? 0.7 : 1,
+                            cursor: 'pointer',
+                            transition: '150ms'
+                          }}
+                        >
+                          {monthNames[monthPoint.month]}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div
+            aria-hidden
+            style={{
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              width: 36,
+              height: '100%',
+              pointerEvents: 'none',
+              background: 'linear-gradient(90deg, rgba(0,0,0,0), var(--bg-card))'
+            }}
+          />
+        </div>
       </div>
 
       {/* ── Budget selectors ── */}
