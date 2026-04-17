@@ -9,6 +9,7 @@ import { CHANNELS } from '@/lib/mockData';
 import { LineChart, Line, ResponsiveContainer } from 'recharts';
 import { Download } from 'lucide-react';
 import { exportToCSV } from '@/lib/exportData';
+import { Link } from 'react-router-dom';
 
 import { useAppContext } from '@/contexts/AppContext';
 
@@ -232,13 +233,13 @@ export default function Overview() {
                     Optimization Alert: <span style={{ color: '#34D399' }}>{formatINRCompact(opportunityGap)}</span> monthly revenue uplift identified
                   </p>
                 </div>
-                <a href="/optimizer" style={{
+                <Link to="/optimizer" style={{
                   fontFamily: 'Outfit', fontSize: 11, fontWeight: 700, color: 'var(--bg-root)',
                   backgroundColor: '#34D399', padding: '6px 14px', borderRadius: 6,
                   textDecoration: 'none', textTransform: 'uppercase', letterSpacing: '0.05em',
                 }}>
                   Open Optimizer →
-                </a>
+                </Link>
               </div>
               <p style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 10, color: 'var(--text-muted)', lineHeight: 1.4, margin: '-8px 0 4px 6px' }}>
                 <span style={{ fontWeight: 600 }}>Note:</span> Monthly uplift is an estimate. It compares your recent spend pattern against what the algorithm considers the optimal distribution.
