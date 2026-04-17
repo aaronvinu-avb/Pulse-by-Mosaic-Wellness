@@ -58,14 +58,31 @@ export default function ChannelPerformance() {
   }, [sorted, currentPage]);
 
   const models = useMemo(() => (globalAggregate || data) ? getChannelSaturationModels(globalAggregate || data!) : [], [data, globalAggregate]);
+  const modelByChannel = useMemo(() => {
+    const map: Record<string, (typeof models)[number] | undefined> = {};
+    models.forEach((model) => {
+      map[model.channel] = model;
+    });
+    return map;
+  }, [models]);
+  const summaryByChannel = useMemo(() => {
+    const map: Record<string, (typeof summaries)[number] | undefined> = {};
+    summaries.forEach((summary) => {
+      map[summary.channel] = summary;
+    });
+    return map;
+  }, [summaries]);
+  const timeFrameMonths = useMemo(
+    () => getTimeFrameMonths(aggregate || globalAggregate || data || []),
+    [aggregate, globalAggregate, data]
+  );
 
   const diminishingData = useMemo(() => {
     const multipliers = [0.5, 1, 1.5, 2, 2.5, 3];
-    const timeFrameMonths = getTimeFrameMonths(aggregate || globalAggregate || data || []);
     return multipliers.map(mult => {
       const row: Record<string, number | string> = { multiplier: `${mult}x` };
       for (const s of summaries) {
-        const model = models.find(m => m.channel === s.channel);
+        const model = modelByChannel[s.channel];
         if (model) {
           const spend = (s.totalSpend / timeFrameMonths) * mult; // Use avg monthly spend for the model
           const rev = projectRevenue(model, spend);
@@ -76,7 +93,7 @@ export default function ChannelPerformance() {
       }
       return row;
     });
-  }, [summaries, models]);
+  }, [summaries, modelByChannel, timeFrameMonths]);
 
   if (isLoading) return <DashboardSkeleton />;
 
@@ -221,7 +238,7 @@ export default function ChannelPerformance() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                       {payload.map((entry: any) => {
                         const channel = entry.dataKey;
-                        const summary = summaries.find(s => s.channel === channel);
+                        const summary = summaryByChannel[channel];
                         const absoluteSpend = ((summary?.totalSpend || 0) / timeFrameMonths) * multNum;
                         return (
                           <div key={channel} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

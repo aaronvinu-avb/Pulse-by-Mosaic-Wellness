@@ -77,7 +77,28 @@ export default function MixOptimizer() {
   // ── Data derivations ──────────────────────────────────────────────────────
   const summaries = useMemo(() => (aggregate || data) ? getChannelSummaries(aggregate || data!) : [], [data, aggregate]);
   const models = useMemo(() => (globalAggregate || data) ? getChannelSaturationModels(globalAggregate || data!) : [], [data, globalAggregate]);
+  const modelByChannel = useMemo(() => {
+    const map: Record<string, (typeof models)[number] | undefined> = {};
+    models.forEach((model) => {
+      map[model.channel] = model;
+    });
+    return map;
+  }, [models]);
+  const summaryByChannel = useMemo(() => {
+    const map: Record<string, (typeof summaries)[number] | undefined> = {};
+    summaries.forEach((summary) => {
+      map[summary.channel] = summary;
+    });
+    return map;
+  }, [summaries]);
   const seasonality = useMemo(() => (globalAggregate || data) ? getSeasonalityMetrics(globalAggregate || data!) : [], [data, globalAggregate]);
+  const seasonalityByChannel = useMemo(() => {
+    const map: Record<string, (typeof seasonality)[number] | undefined> = {};
+    seasonality.forEach((entry) => {
+      map[entry.channel] = entry;
+    });
+    return map;
+  }, [seasonality]);
   const dowMetrics = useMemo(() => (aggregate || data) ? getDayOfWeekMetrics(aggregate || data!) : [], [data, aggregate]);
   const timeFrameMonths = useMemo(() => getTimeFrameMonths(aggregate || data || []), [aggregate, data]);
 
@@ -103,20 +124,20 @@ export default function MixOptimizer() {
     const totalSpend = summaries.reduce((sum, channel) => sum + channel.totalSpend, 0);
     const fractions: Record<string, number> = {};
     CHANNELS.forEach((channel) => {
-      const summary = summaries.find((s) => s.channel === channel);
+      const summary = summaryByChannel[channel];
       fractions[channel] = totalSpend > 0 ? (summary?.totalSpend || 0) / totalSpend : 0.1;
     });
     return fractions;
-  }, [summaries]);
+  }, [summaries, summaryByChannel]);
 
   const monthMultipliers = useMemo(() => {
     const mults: Record<string, number> = {};
     for (const ch of CHANNELS) {
-      const sea = (seasonality || []).find(s => s.channel === ch);
+      const sea = seasonalityByChannel[ch];
       mults[ch] = sea?.monthlyIndex?.[selectedMonth] ?? 1.0;
     }
     return mults;
-  }, [seasonality, selectedMonth]);
+  }, [seasonalityByChannel, selectedMonth]);
 
   // Initial equal split
   const alloc = useMemo(() => {
@@ -158,24 +179,24 @@ export default function MixOptimizer() {
   const projectedRevenue = useMemo(() => {
     if (models.length === 0) return 0;
     return CHANNELS.reduce((s, ch) => {
-      const model = models.find(m => m.channel === ch);
+      const model = modelByChannel[ch];
       if (!model) return s;
       const mult = monthMultipliers[ch] || 1.0;
       return s + projectRevenue(model, (effectiveAlloc[ch] || 0) * budget, mult);
     }, 0);
-  }, [effectiveAlloc, budget, models, monthMultipliers]);
+  }, [effectiveAlloc, budget, models, monthMultipliers, modelByChannel]);
 
   const projectedROAS = budget > 0 ? projectedRevenue / budget : 0;
 
   const optimalRevenue = useMemo(() => {
     if (models.length === 0) return 0;
     return CHANNELS.reduce((s, ch) => {
-      const model = models.find(m => m.channel === ch);
+      const model = modelByChannel[ch];
       if (!model) return s;
       const mult = monthMultipliers[ch] || 1.0;
       return s + projectRevenue(model, (optimalFractions[ch] || 0) * budget, mult);
     }, 0);
-  }, [optimalFractions, budget, models, monthMultipliers]);
+  }, [optimalFractions, budget, models, monthMultipliers, modelByChannel]);
 
   const revenueGap = Math.max(0, optimalRevenue - projectedRevenue);
   const totalPct = useMemo(() => CHANNELS.reduce((s, ch) => s + (alloc[ch] || 0), 0), [alloc]);
@@ -189,11 +210,11 @@ export default function MixOptimizer() {
 
   // ── Marginal ROAS curve for selected channel ──────────────────────────────
   const marginalCurveData = useMemo(() => {
-    const model = models.find(m => m.channel === selectedChannel);
+    const model = modelByChannel[selectedChannel];
     if (!model) return [];
     const currentSpend = (effectiveAlloc[selectedChannel] || 0) * budget;
     return getMarginalROASCurve(model, Math.max(currentSpend * 2, 3000000), 40);
-  }, [models, selectedChannel, effectiveAlloc, budget]);
+  }, [selectedChannel, effectiveAlloc, budget, modelByChannel]);
 
   const currentChannelSpend = (effectiveAlloc[selectedChannel] || 0) * budget;
 
@@ -258,7 +279,7 @@ export default function MixOptimizer() {
         </div>
         <button 
           onClick={() => exportToCSV(CHANNELS.map(ch => {
-            const model = models.find(m => m.channel === ch);
+            const model = modelByChannel[ch];
             const currentAllocation = effectiveAlloc[ch] || 0;
             const optimalAllocation = optimalFractions[ch] || 0;
             const currentRevenue = model ? projectRevenue(model, currentAllocation * budget, monthMultipliers[ch] || 1.0) : 0;
@@ -395,7 +416,7 @@ export default function MixOptimizer() {
               {CHANNELS.map((ch, ci) => {
                 const pct = Math.round((alloc[ch] || 0) * 100);
                 const amt = (effectiveAlloc[ch] || 0) * budget;
-                const model = models.find(m => m.channel === ch);
+                const model = modelByChannel[ch];
                 const projRev = model ? projectRevenue(model, amt) : amt * (roasMap[ch] || 0);
                 const optPct = Math.round((optimalFractions[ch] || 0) * 100);
                 const isPaused = paused.has(ch);
@@ -592,7 +613,7 @@ export default function MixOptimizer() {
             <p style={{ fontFamily: 'Outfit', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Select Channel</p>
             {CHANNELS.map((ch, ci) => {
               const isActive = selectedChannel === ch;
-              const model = models.find(m => m.channel === ch);
+              const model = modelByChannel[ch];
               const color = CHANNEL_COLORS[ci];
               return (
                 <button
@@ -615,9 +636,9 @@ export default function MixOptimizer() {
           {/* Curve chart */}
           <div style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-strong)', borderRadius: 16, padding: 24 }}>
             {(() => {
-              const model = models.find(m => m.channel === selectedChannel);
+              const model = modelByChannel[selectedChannel];
               const color = CHANNEL_COLORS[CHANNELS.indexOf(selectedChannel)];
-              const summary = summaries.find(s => s.channel === selectedChannel);
+              const summary = summaryByChannel[selectedChannel];
               return (
                 <>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
