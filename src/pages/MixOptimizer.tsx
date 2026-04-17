@@ -39,6 +39,8 @@ import {
 } from 'recharts';
 import { exportToCSV } from '@/lib/exportData';
 
+type DurationMode = 'monthly' | 'quarterly' | 'halfYear' | 'annual' | 'custom';
+
 const BUDGET_SCENARIOS = [
   { label: 'Conservative ₹30L', value: 3000000, color: '#60A5FA' },
   { label: 'Current ₹50L', value: 5000000, color: '#FBBF24' },
@@ -66,6 +68,22 @@ const tooltipStyle = {
 
 export default function MixOptimizer() {
   const { data, aggregate, globalAggregate, isLoading } = useMarketingData({ includeGlobalAggregate: true });
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+  const timelineStartYear = 2023;
+  const timelineEndYear = 2027;
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const timelineMonths = useMemo(
+    () =>
+      Array.from({ length: (timelineEndYear - timelineStartYear + 1) * 12 }, (_, idx) => {
+        const year = timelineStartYear + Math.floor(idx / 12);
+        const month = idx % 12;
+        return { key: `${year}-${String(month + 1).padStart(2, '0')}`, year, month };
+      }),
+    [timelineStartYear, timelineEndYear]
+  );
+  const currentMonthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
   const [budget, setBudget] = useState(5000000);
   const [hasSetInitialBudget, setHasSetInitialBudget] = useState(false);
   const [allocations, setAllocations] = useState<Record<string, number>>({});
@@ -73,7 +91,10 @@ export default function MixOptimizer() {
   const [activePill, setActivePill] = useState(1);
   const [selectedChannel, setSelectedChannel] = useState<string>(CHANNELS[0]);
   const [activeTab, setActiveTab] = useState<'optimizer' | 'insights' | 'curves'>('optimizer');
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth()); // 0..11
+  const [durationMode, setDurationMode] = useState<DurationMode>('monthly');
+  const [selectedAnchorMonth, setSelectedAnchorMonth] = useState(currentMonthKey);
+  const [customStartMonth, setCustomStartMonth] = useState(currentMonthKey);
+  const [customEndMonth, setCustomEndMonth] = useState(currentMonthKey);
   const safeBudget = Number.isFinite(budget) ? Math.max(0, budget) : 0;
 
   // ── Data derivations ──────────────────────────────────────────────────────
@@ -132,14 +153,48 @@ export default function MixOptimizer() {
     return fractions;
   }, [summaries, summaryByChannel]);
 
-  const monthMultipliers = useMemo(() => {
+  const selectedRange = useMemo(() => {
+    const anchor = timelineMonths.find((m) => m.key === selectedAnchorMonth) || timelineMonths[timelineMonths.length - 1];
+    if (!anchor) return [];
+    if (durationMode === 'monthly') return [anchor];
+    if (durationMode === 'quarterly') {
+      const quarterStart = Math.floor(anchor.month / 3) * 3;
+      return timelineMonths.filter((m) => m.year === anchor.year && m.month >= quarterStart && m.month <= quarterStart + 2);
+    }
+    if (durationMode === 'halfYear') {
+      const halfStart = anchor.month < 6 ? 0 : 6;
+      return timelineMonths.filter((m) => m.year === anchor.year && m.month >= halfStart && m.month <= halfStart + 5);
+    }
+    if (durationMode === 'annual') {
+      return timelineMonths.filter((m) => m.year === anchor.year);
+    }
+    const start = timelineMonths.find((m) => m.key === customStartMonth);
+    const end = timelineMonths.find((m) => m.key === customEndMonth);
+    if (!start || !end) return [anchor];
+    const startIdx = timelineMonths.findIndex((m) => m.key === start.key);
+    const endIdx = timelineMonths.findIndex((m) => m.key === end.key);
+    const minIdx = Math.min(startIdx, endIdx);
+    const maxIdx = Math.max(startIdx, endIdx);
+    return timelineMonths.slice(minIdx, maxIdx + 1);
+  }, [customEndMonth, customStartMonth, durationMode, selectedAnchorMonth, timelineMonths]);
+
+  const rangeLookup = useMemo(() => new Set(selectedRange.map((m) => m.key)), [selectedRange]);
+  const durationMonthCount = selectedRange.length || 1;
+  const totalPlannedBudget = safeBudget * durationMonthCount;
+
+  const getMonthMultiplierFor = useCallback((channel: string, monthIndex: number) => {
+    const sea = seasonalityByChannel[channel];
+    return sea?.monthlyIndex?.[monthIndex] ?? 1.0;
+  }, [seasonalityByChannel]);
+
+  const averageMonthMultipliers = useMemo(() => {
     const mults: Record<string, number> = {};
     for (const ch of CHANNELS) {
-      const sea = seasonalityByChannel[ch];
-      mults[ch] = sea?.monthlyIndex?.[selectedMonth] ?? 1.0;
+      const total = selectedRange.reduce((sum, monthPoint) => sum + getMonthMultiplierFor(ch, monthPoint.month), 0);
+      mults[ch] = durationMonthCount > 0 ? total / durationMonthCount : 1.0;
     }
     return mults;
-  }, [seasonalityByChannel, selectedMonth]);
+  }, [durationMonthCount, getMonthMultiplierFor, selectedRange]);
 
   // Initial equal split
   const alloc = useMemo(() => {
@@ -167,40 +222,65 @@ export default function MixOptimizer() {
 
   // Optimal fractions via non-linear model (Context-Aware)
   const optimalFractions = useMemo(() =>
-    models.length > 0 ? getOptimalAllocationNonLinear(models, safeBudget, paused, monthMultipliers) : {},
-  [models, safeBudget, paused, monthMultipliers]);
+    models.length > 0 ? getOptimalAllocationNonLinear(models, safeBudget, paused, averageMonthMultipliers) : {},
+  [models, safeBudget, paused, averageMonthMultipliers]);
 
   // Pre-computed scenario projections (Context-Aware)
   const scenarioResults = useMemo(() =>
     models.length > 0
-      ? computeScenarios(models, BUDGET_SCENARIOS.map(s => s.value), paused, monthMultipliers)
+      ? computeScenarios(
+          models,
+          BUDGET_SCENARIOS.map((s) => s.value * durationMonthCount),
+          paused,
+          averageMonthMultipliers
+        )
       : BUDGET_SCENARIOS.map(s => ({ budget: s.value, revenue: 0, roas: 0, fractions: {} })),
-  [models, paused, monthMultipliers]);
+  [models, paused, averageMonthMultipliers, durationMonthCount]);
 
   // ── Projections using log model (Context-Aware) ───────────────────────────
   const projectedRevenue = useMemo(() => {
     if (models.length === 0) return 0;
-    return CHANNELS.reduce((s, ch) => {
-      const model = modelByChannel[ch];
-      if (!model) return s;
-      const mult = monthMultipliers[ch] || 1.0;
-      return s + projectRevenue(model, (effectiveAlloc[ch] || 0) * safeBudget, mult);
+    return selectedRange.reduce((periodTotal, monthPoint) => {
+      const monthRevenue = CHANNELS.reduce((sum, ch) => {
+        const model = modelByChannel[ch];
+        if (!model) return sum;
+        const mult = getMonthMultiplierFor(ch, monthPoint.month);
+        return sum + projectRevenue(model, (effectiveAlloc[ch] || 0) * safeBudget, mult);
+      }, 0);
+      return periodTotal + monthRevenue;
     }, 0);
-  }, [effectiveAlloc, safeBudget, models, monthMultipliers, modelByChannel]);
+  }, [effectiveAlloc, getMonthMultiplierFor, modelByChannel, models.length, safeBudget, selectedRange]);
 
-  const projectedROAS = safeBudget > 0 ? projectedRevenue / safeBudget : 0;
+  const projectedROAS = totalPlannedBudget > 0 ? projectedRevenue / totalPlannedBudget : 0;
 
   const optimalRevenue = useMemo(() => {
     if (models.length === 0) return 0;
-    return CHANNELS.reduce((s, ch) => {
-      const model = modelByChannel[ch];
-      if (!model) return s;
-      const mult = monthMultipliers[ch] || 1.0;
-      return s + projectRevenue(model, (optimalFractions[ch] || 0) * safeBudget, mult);
+    return selectedRange.reduce((periodTotal, monthPoint) => {
+      const monthRevenue = CHANNELS.reduce((sum, ch) => {
+        const model = modelByChannel[ch];
+        if (!model) return sum;
+        const mult = getMonthMultiplierFor(ch, monthPoint.month);
+        return sum + projectRevenue(model, (optimalFractions[ch] || 0) * safeBudget, mult);
+      }, 0);
+      return periodTotal + monthRevenue;
     }, 0);
-  }, [optimalFractions, safeBudget, models, monthMultipliers, modelByChannel]);
+  }, [getMonthMultiplierFor, modelByChannel, models.length, optimalFractions, safeBudget, selectedRange]);
 
   const revenueGap = Math.max(0, optimalRevenue - projectedRevenue);
+  const durationLabel = useMemo(() => {
+    if (durationMode === 'monthly') return 'this month';
+    if (durationMode === 'quarterly') return 'this quarter';
+    if (durationMode === 'halfYear') return 'this half-year';
+    if (durationMode === 'annual') return 'this year';
+    return selectedRange.length > 1 ? 'this selected period' : 'this month';
+  }, [durationMode, selectedRange.length]);
+  const scenarioBudgetLabel = useMemo(() => {
+    if (durationMode === 'monthly') return 'Monthly Budget';
+    if (durationMode === 'quarterly') return 'Quarterly Budget';
+    if (durationMode === 'halfYear') return 'Half-Year Budget';
+    if (durationMode === 'annual') return 'Annual Budget';
+    return 'Period Budget';
+  }, [durationMode]);
   const totalPct = useMemo(() => CHANNELS.reduce((s, ch) => s + (alloc[ch] || 0), 0), [alloc]);
 
   // ── Insight generation ────────────────────────────────────────────────────
@@ -284,14 +364,26 @@ export default function MixOptimizer() {
             const model = modelByChannel[ch];
             const currentAllocation = effectiveAlloc[ch] || 0;
             const optimalAllocation = optimalFractions[ch] || 0;
-            const currentRevenue = model ? projectRevenue(model, currentAllocation * safeBudget, monthMultipliers[ch] || 1.0) : 0;
-            const optimalRevenue = model ? projectRevenue(model, optimalAllocation * safeBudget, monthMultipliers[ch] || 1.0) : 0;
+            const currentRevenue = model
+              ? selectedRange.reduce(
+                  (sum, monthPoint) =>
+                    sum + projectRevenue(model, currentAllocation * safeBudget, getMonthMultiplierFor(ch, monthPoint.month)),
+                  0
+                )
+              : 0;
+            const optimalRevenue = model
+              ? selectedRange.reduce(
+                  (sum, monthPoint) =>
+                    sum + projectRevenue(model, optimalAllocation * safeBudget, getMonthMultiplierFor(ch, monthPoint.month)),
+                  0
+                )
+              : 0;
             return {
             Channel: ch,
             'Current Allocation (%)': (currentAllocation * 100).toFixed(1),
             'AI Optimal Allocation (%)': (optimalAllocation * 100).toFixed(1),
-            'Current Spend': (currentAllocation * safeBudget).toFixed(0),
-            'Optimal Spend': (optimalAllocation * safeBudget).toFixed(0),
+            'Current Spend': (currentAllocation * totalPlannedBudget).toFixed(0),
+            'Optimal Spend': (optimalAllocation * totalPlannedBudget).toFixed(0),
             'Current Revenue': currentRevenue.toFixed(0),
             'Optimal Revenue': optimalRevenue.toFixed(0)
             };
@@ -314,32 +406,108 @@ export default function MixOptimizer() {
       </div>
 
       {/* Temporal Context Selector */}
-      <div style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-strong)', borderRadius: 16, padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 16 }}>
+      <div style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-strong)', borderRadius: 16, padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
         <p style={{ fontFamily: 'Outfit', fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.1em', whiteSpace: 'nowrap' }}>
           Planning Context:
         </p>
-        <div style={{ display: 'flex', gap: 4, overflowX: 'auto', paddingBottom: 4 }}>
-          {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((m, i) => (
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          {[
+            { value: 'monthly', label: 'Monthly' },
+            { value: 'quarterly', label: 'Quarterly' },
+            { value: 'halfYear', label: 'Half-Year' },
+            { value: 'annual', label: 'Annual' },
+            { value: 'custom', label: 'Custom' },
+          ].map((mode) => (
             <button
-              key={m}
-              onClick={() => setSelectedMonth(i)}
+              key={mode.value}
+              onClick={() => setDurationMode(mode.value as DurationMode)}
               style={{
                 fontFamily: 'Plus Jakarta Sans',
                 fontSize: 11,
                 fontWeight: 600,
                 padding: '4px 10px',
                 borderRadius: 6,
-                border: selectedMonth === i ? '1px solid var(--border-strong)' : '1px solid transparent',
-                backgroundColor: selectedMonth === i ? 'var(--border-subtle)' : 'transparent',
-                color: selectedMonth === i ? 'var(--text-primary)' : 'var(--text-muted)',
+                border: durationMode === mode.value ? '1px solid var(--border-strong)' : '1px solid transparent',
+                backgroundColor: durationMode === mode.value ? 'var(--border-subtle)' : 'transparent',
+                color: durationMode === mode.value ? 'var(--text-primary)' : 'var(--text-muted)',
                 cursor: 'pointer',
                 transition: '150ms'
               }}
             >
-              {m}
+              {mode.label}
             </button>
           ))}
         </div>
+        <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 4, minWidth: 0, flex: 1 }}>
+          {Array.from({ length: timelineEndYear - timelineStartYear + 1 }, (_, yearOffset) => {
+            const year = timelineStartYear + yearOffset;
+            const yearMonths = timelineMonths.filter((m) => m.year === year);
+            return (
+              <div key={year} style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 240 }}>
+                <p style={{ fontFamily: 'Outfit', fontSize: 10, fontWeight: 700, color: 'var(--text-secondary)', letterSpacing: '0.08em' }}>
+                  {year}
+                </p>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  {yearMonths.map((monthPoint) => {
+                    const isSelected = rangeLookup.has(monthPoint.key);
+                    const isPast = monthPoint.year < currentYear || (monthPoint.year === currentYear && monthPoint.month < currentMonth);
+                    const isAnchor = selectedAnchorMonth === monthPoint.key;
+                    return (
+                      <button
+                        key={monthPoint.key}
+                        onClick={() => {
+                          setSelectedAnchorMonth(monthPoint.key);
+                          if (durationMode === 'custom') {
+                            setCustomStartMonth(monthPoint.key);
+                            setCustomEndMonth(monthPoint.key);
+                          }
+                        }}
+                        style={{
+                          fontFamily: 'Plus Jakarta Sans',
+                          fontSize: 10,
+                          fontWeight: 600,
+                          padding: '4px 8px',
+                          borderRadius: 6,
+                          border: isAnchor ? '1px solid var(--border-strong)' : isSelected ? '1px solid var(--border-subtle)' : '1px solid transparent',
+                          backgroundColor: isSelected ? 'var(--border-subtle)' : 'transparent',
+                          color: isPast && !isSelected ? 'var(--text-muted)' : 'var(--text-primary)',
+                          opacity: isPast && !isSelected ? 0.7 : 1,
+                          cursor: 'pointer',
+                          transition: '150ms'
+                        }}
+                      >
+                        {monthNames[monthPoint.month]}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {durationMode === 'custom' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <select
+              value={customStartMonth}
+              onChange={(e) => setCustomStartMonth(e.target.value)}
+              style={{ backgroundColor: 'var(--bg-root)', border: '1px solid var(--border-strong)', borderRadius: 8, color: 'var(--text-primary)', fontFamily: 'Plus Jakarta Sans', fontSize: 11, padding: '6px 8px' }}
+            >
+              {timelineMonths.map((m) => (
+                <option key={`start-${m.key}`} value={m.key}>{`${monthNames[m.month]} ${m.year}`}</option>
+              ))}
+            </select>
+            <span style={{ fontFamily: 'Outfit', fontSize: 10, color: 'var(--text-muted)' }}>to</span>
+            <select
+              value={customEndMonth}
+              onChange={(e) => setCustomEndMonth(e.target.value)}
+              style={{ backgroundColor: 'var(--bg-root)', border: '1px solid var(--border-strong)', borderRadius: 8, color: 'var(--text-primary)', fontFamily: 'Plus Jakarta Sans', fontSize: 11, padding: '6px 8px' }}
+            >
+              {timelineMonths.map((m) => (
+                <option key={`end-${m.key}`} value={m.key}>{`${monthNames[m.month]} ${m.year}`}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* ── Budget selectors ── */}
@@ -347,7 +515,7 @@ export default function MixOptimizer() {
         {BUDGET_SCENARIOS.map((s, i) => (
           <button key={i} onClick={() => { setBudget(s.value); setActivePill(i); }} style={pillStyle(activePill === i)} className="flex items-center gap-2">
             <Circle size={8} fill={s.color} stroke="none" />
-            {s.label}
+            {`${s.label.split(' ')[0]} ${formatINRCompact(s.value * durationMonthCount)} (${durationMode === 'monthly' ? 'Monthly' : durationMode === 'quarterly' ? 'Quarterly' : durationMode === 'halfYear' ? 'Half-Year' : durationMode === 'annual' ? 'Annual' : `${durationMonthCount}M`})`}
           </button>
         ))}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-strong)', borderRadius: 8, padding: '6px 14px' }}>
@@ -372,7 +540,7 @@ export default function MixOptimizer() {
           <div>
             <p style={{ fontFamily: 'Outfit', fontSize: 11, fontWeight: 600, color: '#34D399', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Revenue Opportunity</p>
             <p style={{ fontFamily: 'Outfit', fontSize: 22, fontWeight: 800, color: '#34D399', letterSpacing: '-0.025em', marginTop: 4 }}>
-              You're leaving {formatINR(Math.round(revenueGap))} on the table this month
+              You're leaving {formatINR(Math.round(revenueGap))} on the table {durationLabel}
             </p>
           </div>
           <button onClick={applyOptimal} style={{ fontFamily: 'Outfit', fontSize: 13, fontWeight: 700, padding: '10px 22px', borderRadius: 10, background: 'linear-gradient(135deg, #34D399, #2DD4BF)', color: 'var(--bg-root)', border: 'none', cursor: 'pointer' }}>
@@ -422,9 +590,15 @@ export default function MixOptimizer() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {CHANNELS.map((ch, ci) => {
                 const pct = Math.round((alloc[ch] || 0) * 100);
-                const amt = (effectiveAlloc[ch] || 0) * safeBudget;
+                const monthlyAmt = (effectiveAlloc[ch] || 0) * safeBudget;
+                const periodAmt = monthlyAmt * durationMonthCount;
                 const model = modelByChannel[ch];
-                const projRev = model ? projectRevenue(model, amt, monthMultipliers[ch] || 1.0) : amt * (roasMap[ch] || 0);
+                const projRev = model
+                  ? selectedRange.reduce(
+                      (sum, monthPoint) => sum + projectRevenue(model, monthlyAmt, getMonthMultiplierFor(ch, monthPoint.month)),
+                      0
+                    )
+                  : periodAmt * (roasMap[ch] || 0);
                 const optPct = Math.round((optimalFractions[ch] || 0) * 100);
                 const isPaused = paused.has(ch);
                 const color = CHANNEL_COLORS[ci];
@@ -449,7 +623,7 @@ export default function MixOptimizer() {
                     </div>
                     <Slider value={[pct]} min={0} max={60} step={1} onValueChange={v => handleSlider(ch, v)} disabled={isPaused} />
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
-                      <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: 'var(--text-muted)' }}>{formatINRCompact(amt)} spend</span>
+                      <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: 'var(--text-muted)' }}>{formatINRCompact(periodAmt)} spend</span>
                       <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: color }}>→ {formatINRCompact(projRev)} rev</span>
                     </div>
                   </div>
@@ -489,7 +663,7 @@ export default function MixOptimizer() {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ backgroundColor: 'var(--bg-card)' }}>
-                    {['Budget', 'Proj. Revenue', 'ROAS', 'vs ₹50L'].map(h => (
+                    {[scenarioBudgetLabel, 'Proj. Revenue', 'ROAS', `vs ${formatINRCompact(BUDGET_SCENARIOS[1].value * durationMonthCount)}`].map(h => (
                       <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontFamily: 'Outfit', fontSize: 10, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{h}</th>
                     ))}
                   </tr>
@@ -503,7 +677,7 @@ export default function MixOptimizer() {
                       <tr key={i} style={{ borderBottom: '1px solid var(--border-subtle)' }}
                         onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--border-subtle)')}
                         onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}>
-                        <td style={{ padding: '12px 16px', fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: 'var(--text-secondary)' }}>{formatINRCompact(s.value)}</td>
+                        <td style={{ padding: '12px 16px', fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: 'var(--text-secondary)' }}>{formatINRCompact(s.value * durationMonthCount)}</td>
                         <td style={{ padding: '12px 16px', fontFamily: 'Outfit', fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{formatINRCompact(sr.revenue)}</td>
                         <td style={{ padding: '12px 16px', fontFamily: 'Outfit', fontSize: 13, fontWeight: 600, color: sr.roas >= 4 ? '#34D399' : sr.roas >= 2 ? '#FBBF24' : '#F87171' }}>{sr.roas.toFixed(2)}x</td>
                         <td style={{ padding: '12px 16px', fontFamily: 'Plus Jakarta Sans', fontSize: 12, color: diff >= 0 ? '#34D399' : '#F87171' }}>
@@ -533,7 +707,7 @@ export default function MixOptimizer() {
                     <th style={{ padding: '10px 16px', textAlign: 'left', fontFamily: 'Outfit', fontSize: 9, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Channel</th>
                     {BUDGET_SCENARIOS.map(s => (
                       <th key={s.label} style={{ padding: '10px 16px', textAlign: 'right', fontFamily: 'Outfit', fontSize: 9, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
-                        {s.value/100000}L
+                        {(s.value * durationMonthCount) / 100000}L
                       </th>
                     ))}
                   </tr>
