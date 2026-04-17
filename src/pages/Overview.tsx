@@ -33,6 +33,10 @@ export default function Overview() {
 
   const { yoyGrowth, yoyLabel } = useMemo(() => {
     if (!globalAggregate) return { yoyGrowth: 0, yoyLabel: 'vs prior year' };
+    const supportsYearOverYear = dateFilter === 'all' || ['2023', '2024', '2025'].includes(dateFilter);
+    if (!supportsYearOverYear) {
+      return { yoyGrowth: 0, yoyLabel: 'YoY not shown for rolling windows' };
+    }
     
     let currentYear = '2025';
     if (['2023', '2024', '2025'].includes(dateFilter)) {
@@ -114,7 +118,7 @@ export default function Overview() {
   const blendedCAC = totals.customers > 0 ? totals.spend / totals.customers : 0;
 
   const metrics = [
-    { label: 'TOTAL REVENUE', value: formatINRCompact(totals.revenue), sub: yoyLabel, subColor: yoyGrowth >= 0 ? '#34D399' : '#F87171', accent: '#34D399', size: 40 },
+    { label: 'TOTAL REVENUE', value: formatINRCompact(totals.revenue), sub: yoyLabel, subColor: yoyLabel.includes('not shown') ? 'var(--text-muted)' : (yoyGrowth >= 0 ? '#34D399' : '#F87171'), accent: '#34D399', size: 40 },
     { label: 'BLENDED CAC', value: formatINR(blendedCAC), sub: 'acquisition cost per customer', subColor: '#FBBF24', accent: '#FBBF24', size: 36, valueColor: '#FBBF24' },
     { label: 'MONTHLY OPPORTUNITY', value: formatINRCompact(opportunityGap), sub: 'unlocked via AI optimizer', subColor: 'var(--text-muted)', accent: '#34D399', size: 32, valueColor: '#34D399' },
     { label: 'TOTAL SPEND', value: formatINRCompact(totals.spend), sub: 'across 10 channels', subColor: 'var(--text-muted)', accent: '#60A5FA', size: 32 },

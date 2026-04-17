@@ -26,6 +26,15 @@ import { LazySection } from '@/components/LazySection';
 
 type Metric = 'roas' | 'revenue' | 'spend';
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const DOW_TO_DAY: Record<string, string> = {
+  Mon: 'Mon',
+  Tue: 'Tue',
+  Wed: 'Wed',
+  Thu: 'Thu',
+  Fri: 'Fri',
+  Sat: 'Sat',
+  Sun: 'Sun',
+};
 
 const chartTooltipStyle = {
   contentStyle: {
@@ -110,10 +119,12 @@ export default function TrendAnalysis() {
     }
 
     for (const r of data) {
-      const d = new Date(r.date);
-      const jsDay = d.getDay();
-      const dayIdx = jsDay === 0 ? 6 : jsDay - 1;
-      const dayName = DAYS[dayIdx];
+      let dayName = DOW_TO_DAY[r.day_of_week] || '';
+      if (!dayName) {
+        const d = new Date(r.date);
+        const jsDay = d.getDay();
+        dayName = DAYS[jsDay === 0 ? 6 : jsDay - 1];
+      }
       
       const channelGrid = grid[r.channel];
       if (channelGrid && channelGrid[dayName]) {

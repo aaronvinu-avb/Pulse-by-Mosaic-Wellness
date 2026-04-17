@@ -111,7 +111,10 @@ export function useMarketingData(options: UseMarketingDataOptions = {}) {
     if (!query.data) return undefined;
     if (dateFilter === 'all') return query.data;
 
-    const nowTime = new Date('2025-12-31').getTime();
+    const latestDataDate = query.data.reduce((maxDate, record) => (
+      record.date > maxDate ? record.date : maxDate
+    ), query.data[0]?.date ?? '');
+    const nowTime = latestDataDate ? new Date(latestDataDate).getTime() : Date.now();
     return query.data.filter(r => {
       if (dateFilter === '2023') return r.date.startsWith('2023');
       if (dateFilter === '2024') return r.date.startsWith('2024');

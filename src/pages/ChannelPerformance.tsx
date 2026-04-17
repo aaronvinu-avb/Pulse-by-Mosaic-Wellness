@@ -222,7 +222,7 @@ export default function ChannelPerformance() {
                       {payload.map((entry: any) => {
                         const channel = entry.dataKey;
                         const summary = summaries.find(s => s.channel === channel);
-                        const absoluteSpend = (summary?.totalSpend || 0) * multNum;
+                        const absoluteSpend = ((summary?.totalSpend || 0) / timeFrameMonths) * multNum;
                         return (
                           <div key={channel} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: entry.color }} />

@@ -41,6 +41,10 @@ export default function FinancialInsights() {
     const totalNew = summaries.reduce((s, c) => s + c.newCustomers, 0);
     return totalNew > 0 ? totals.spend / totalNew : 0;
   }, [summaries, totals]);
+  const sortedFinancialsByPayback = useMemo(
+    () => [...financials].sort((a, b) => a.paybackDays - b.paybackDays),
+    [financials]
+  );
 
   const cohortData = useMemo(() => {
     // Generate combined cohort data for top 5 channels
@@ -178,7 +182,7 @@ export default function FinancialInsights() {
           </div>
           
           <ResponsiveContainer width="100%" height={320}>
-            <BarChart data={[...financials].sort((a,b) => a.paybackDays - b.paybackDays)} layout="vertical" margin={{ left: 20 }}>
+            <BarChart data={sortedFinancialsByPayback} layout="vertical" margin={{ left: 20 }}>
               <CartesianGrid strokeDasharray="2 4" stroke="var(--border-subtle)" horizontal={false} />
               <XAxis type="number" hide />
               <YAxis 
@@ -194,7 +198,7 @@ export default function FinancialInsights() {
                 formatter={(v: number) => [`${v} days`, 'Est. Payback']}
               />
               <Bar dataKey="paybackDays" radius={[0, 4, 4, 0]} barSize={16}>
-                {financials.map((entry, index) => (
+                {sortedFinancialsByPayback.map((entry, index) => (
                   <Cell key={index} fill={entry.paybackDays < 60 ? '#34D399' : entry.paybackDays < 120 ? '#FBBF24' : '#F87171'} />
                 ))}
               </Bar>

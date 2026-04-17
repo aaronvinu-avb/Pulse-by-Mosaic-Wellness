@@ -147,7 +147,7 @@ export default function FunnelAnalysis() {
       <div className="flex items-start gap-2 p-4 rounded-xl mt-4" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', width: '100%' }}>
         <p style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6, margin: 0 }}>
           <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Methodology: </span> 
-          This pipeline tracks standard traffic progression—from initial impressions to conversions and new customers. Because privacy restrictions sometimes limit tracking across devices, these metrics use statistical models to estimate the most likely volume journeys based on isolated channel parameters.
+          This pipeline tracks observed traffic progression—from impressions to clicks, conversions, and new customers—by aggregating reported channel metrics. Values are descriptive summaries of tracked performance, not model-estimated journeys.
         </p>
       </div>
     </div>

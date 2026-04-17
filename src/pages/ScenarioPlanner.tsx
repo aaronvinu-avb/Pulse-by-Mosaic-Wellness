@@ -143,7 +143,7 @@ export default function ScenarioPlanner() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
           <div>
             <h2 style={{ fontFamily: 'Outfit', fontSize: 16, fontWeight: 800, color: 'var(--text-primary)' }}>Strategic Forecast (30 Days)</h2>
-            <p style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>Compare revenue growth velocity across budget tiers</p>
+            <p style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>Compare cumulative monthly pacing across budget tiers (linear day-by-day interpolation)</p>
           </div>
           <div style={{ display: 'flex', gap: 16 }}>
             {scenarioLabels.map((l, i) => (

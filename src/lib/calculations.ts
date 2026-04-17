@@ -27,6 +27,13 @@ export interface AggregatedState {
   totalDays: number;
 }
 
+function formatLocalDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 /**
  * Single-pass aggregator that builds the entire metrics state from raw data.
  * Complexity: O(N) where N is the number of records.
@@ -80,7 +87,7 @@ export function getAggregatedState(data: MarketingRecord[]): AggregatedState {
     
     const weekStart = new Date(d);
     weekStart.setDate(d.getDate() - (DOW_ORDER[day_of_week] || 0));
-    const weekKey = weekStart.toISOString().split('T')[0];
+    const weekKey = formatLocalDateKey(weekStart);
     if (!weeklyMap[weekKey]) weeklyMap[weekKey] = {};
     if (!weeklyMap[weekKey][channel]) weeklyMap[weekKey][channel] = { spend: 0, revenue: 0 };
     weeklyMap[weekKey][channel].spend += spend || 0;
@@ -163,7 +170,7 @@ export function getWeeklyROAS(data: MarketingRecord[] | AggregatedState, channel
     const d = new Date(r.date);
     const weekStart = new Date(d);
     weekStart.setDate(d.getDate() - d.getDay());
-    const key = weekStart.toISOString().split('T')[0];
+    const key = formatLocalDateKey(weekStart);
     const w = weekMap.get(key) || { spend: 0, revenue: 0 };
     w.spend += r.spend;
     w.revenue += r.revenue;

@@ -13,15 +13,16 @@ export default function DailyDigest() {
 
     const dates = [...new Set(data.map(r => r.date))].sort();
     const yesterdayDate = dates[dates.length - 1];
+    const trailing30Dates = new Set(dates.slice(-30));
 
     const channelRows = CHANNELS.map(ch => {
       const yesterdayRecords = data.filter(r => r.date === yesterdayDate && r.channel === ch);
       const ySpend = yesterdayRecords.reduce((s, r) => s + r.spend, 0);
       const yRevenue = yesterdayRecords.reduce((s, r) => s + r.revenue, 0);
 
-      const allRecords = data.filter(r => r.channel === ch);
-      const uniqueDays = new Set(allRecords.map(r => r.date)).size;
-      const avgRevenue = allRecords.reduce((s, r) => s + r.revenue, 0) / (uniqueDays || 1);
+      const baselineRecords = data.filter(r => r.channel === ch && trailing30Dates.has(r.date));
+      const uniqueDays = new Set(baselineRecords.map(r => r.date)).size;
+      const avgRevenue = baselineRecords.reduce((s, r) => s + r.revenue, 0) / (uniqueDays || 1);
 
       const vsAvg = avgRevenue > 0 ? ((yRevenue - avgRevenue) / avgRevenue) * 100 : 0;
       const roas = ySpend > 0 ? yRevenue / ySpend : 0;

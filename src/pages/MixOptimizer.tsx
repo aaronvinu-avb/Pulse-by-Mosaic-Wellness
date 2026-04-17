@@ -99,6 +99,15 @@ export default function MixOptimizer() {
     for (const s of summaries) m[s.channel] = s.roas;
     return m;
   }, [summaries]);
+  const currentFractions = useMemo(() => {
+    const totalSpend = summaries.reduce((sum, channel) => sum + channel.totalSpend, 0);
+    const fractions: Record<string, number> = {};
+    CHANNELS.forEach((channel) => {
+      const summary = summaries.find((s) => s.channel === channel);
+      fractions[channel] = totalSpend > 0 ? (summary?.totalSpend || 0) / totalSpend : 0.1;
+    });
+    return fractions;
+  }, [summaries]);
 
   const monthMultipliers = useMemo(() => {
     const mults: Record<string, number> = {};
@@ -203,9 +212,7 @@ export default function MixOptimizer() {
   }, []);
 
   const resetToCurrent = () => {
-    const eq: Record<string, number> = {};
-    CHANNELS.forEach(ch => (eq[ch] = 0.1));
-    setAllocations(eq);
+    setAllocations({ ...currentFractions });
     setPaused(new Set());
   };
 
@@ -250,15 +257,22 @@ export default function MixOptimizer() {
           <p style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: 'var(--text-secondary)', marginTop: 6, marginBottom: 12 }}>AI-powered budget allocation & revenue forecasting</p>
         </div>
         <button 
-          onClick={() => exportToCSV(CHANNELS.map(ch => ({
+          onClick={() => exportToCSV(CHANNELS.map(ch => {
+            const model = models.find(m => m.channel === ch);
+            const currentAllocation = effectiveAlloc[ch] || 0;
+            const optimalAllocation = optimalFractions[ch] || 0;
+            const currentRevenue = model ? projectRevenue(model, currentAllocation * budget, monthMultipliers[ch] || 1.0) : 0;
+            const optimalRevenue = model ? projectRevenue(model, optimalAllocation * budget, monthMultipliers[ch] || 1.0) : 0;
+            return {
             Channel: ch,
-            'Current Allocation (%)': ((allocations[ch] || 0) * 100).toFixed(1),
-            'AI Optimal Allocation (%)': ((optimalFractions[ch] || 0) * 100).toFixed(1),
-            'Current Spend': ((allocations[ch] || 0) * budget).toFixed(0),
-            'Optimal Spend': ((optimalFractions[ch] || 0) * budget).toFixed(0),
-            'Current Revenue': projectRevenue(models.find(m => m.channel === ch)!, (allocations[ch] || 0) * budget, monthMultipliers[ch] || 1.0).toFixed(0),
-            'Optimal Revenue': projectRevenue(models.find(m => m.channel === ch)!, (optimalFractions[ch] || 0) * budget, monthMultipliers[ch] || 1.0).toFixed(0)
-          })), 'Pulse_Marketing_Mix_Optimization')}
+            'Current Allocation (%)': (currentAllocation * 100).toFixed(1),
+            'AI Optimal Allocation (%)': (optimalAllocation * 100).toFixed(1),
+            'Current Spend': (currentAllocation * budget).toFixed(0),
+            'Optimal Spend': (optimalAllocation * budget).toFixed(0),
+            'Current Revenue': currentRevenue.toFixed(0),
+            'Optimal Revenue': optimalRevenue.toFixed(0)
+            };
+          }), 'Pulse_Marketing_Mix_Optimization')}
           className="flex items-center gap-2 px-4 py-2 rounded-xl transition-all hover:scale-105 active:scale-95"
           style={{ 
             backgroundColor: 'var(--bg-card)', 
@@ -370,7 +384,7 @@ export default function MixOptimizer() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
               <h2 style={{ fontFamily: 'Outfit', fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>Manual Allocation</h2>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={resetToCurrent} style={{ fontFamily: 'Outfit', fontSize: 12, fontWeight: 600, padding: '7px 16px', borderRadius: 8, backgroundColor: 'var(--bg-root)', color: 'var(--text-secondary)', border: '1px solid var(--border-strong)', cursor: 'pointer' }}>Reset</button>
+                <button onClick={resetToCurrent} style={{ fontFamily: 'Outfit', fontSize: 12, fontWeight: 600, padding: '7px 16px', borderRadius: 8, backgroundColor: 'var(--bg-root)', color: 'var(--text-secondary)', border: '1px solid var(--border-strong)', cursor: 'pointer' }}>Reset to Current</button>
                 <button onClick={applyOptimal} style={{ fontFamily: 'Outfit', fontSize: 12, fontWeight: 700, padding: '7px 16px', borderRadius: 8, background: 'linear-gradient(135deg, #E8803A, #FBBF24)', color: 'var(--bg-root)', border: 'none', cursor: 'pointer', boxShadow: '0 4px 14px rgba(232,128,58,0.3)', display: 'flex', alignItems: 'center', gap: 6 }}>
                   AI Recommendation <Sparkles size={12} />
                 </button>
