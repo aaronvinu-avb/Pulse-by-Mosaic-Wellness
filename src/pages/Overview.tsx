@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useMarketingData } from '@/hooks/useMarketingData';
 import { DashboardSkeleton } from '@/components/DashboardSkeleton';
+import { DeferredRender } from '@/components/DeferredRender';
 import { ChannelName } from '@/components/ChannelName';
 import { getChannelSummaries, getMonthlyAggregation, getChannelSaturationModels, getOptimalAllocationNonLinear, projectRevenue, getTimeFrameMonths, getSeasonalityMetrics } from '@/lib/calculations';
 import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
@@ -131,7 +132,7 @@ export default function Overview() {
       <div style={{ marginBottom: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
           <h1 style={{ fontFamily: 'Outfit', fontSize: 30, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.035em', margin: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
-            Pulse Dashboard
+            Luma Dashboard
             {dataSource !== 'loading' && (
               <span style={{
                 fontFamily: 'Outfit', fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 6,
@@ -159,7 +160,7 @@ export default function Overview() {
             ROAS: (s.totalRevenue / s.totalSpend).toFixed(2),
             Customers: s.newCustomers,
             Conversions: s.conversions
-          })), 'Pulse_Channel_Performance')}
+          })), 'Luma_Channel_Performance')}
           className="flex items-center gap-2 px-4 py-2 rounded-xl transition-all hover:scale-105 active:scale-95"
           style={{ 
             backgroundColor: 'var(--bg-card)', 
@@ -205,108 +206,109 @@ export default function Overview() {
 
         {/* Right: opportunity banner + channel table */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minHeight: 0 }}>
-
-          {/* Opportunity Alert */}
-          {opportunityGap > 0 && (
-            <>
-            <div style={{
-              background: 'linear-gradient(90deg, var(--alert-bg-1), var(--alert-bg-2))',
-              border: '1px solid var(--border-strong)', borderRadius: 12, padding: '14px 20px',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.2)', flexShrink: 0,
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#34D399', boxShadow: '0 0 10px #34D399' }} />
-                <p style={{ fontFamily: 'Outfit', fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
-                  Optimization Alert: <span style={{ color: '#34D399' }}>{formatINRCompact(opportunityGap)}</span> monthly revenue uplift identified
-                </p>
-              </div>
-              <a href="/optimizer" style={{
-                fontFamily: 'Outfit', fontSize: 11, fontWeight: 700, color: 'var(--bg-root)',
-                backgroundColor: '#34D399', padding: '6px 14px', borderRadius: 6,
-                textDecoration: 'none', textTransform: 'uppercase', letterSpacing: '0.05em',
+          <DeferredRender delay={150}>
+            {/* Opportunity Alert */}
+            {opportunityGap > 0 && (
+              <>
+              <div style={{
+                background: 'linear-gradient(90deg, var(--alert-bg-1), var(--alert-bg-2))',
+                border: '1px solid var(--border-strong)', borderRadius: 12, padding: '14px 20px',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.2)', flexShrink: 0,
               }}>
-                Open Optimizer →
-              </a>
-            </div>
-            <p style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 10, color: 'var(--text-muted)', lineHeight: 1.4, margin: '-8px 0 4px 6px' }}>
-              <span style={{ fontWeight: 600 }}>Note:</span> Monthly uplift is an estimate. It compares your recent spend pattern against what the algorithm considers the optimal distribution.
-            </p>
-            </>
-          )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#34D399', boxShadow: '0 0 10px #34D399' }} />
+                  <p style={{ fontFamily: 'Outfit', fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+                    Optimization Alert: <span style={{ color: '#34D399' }}>{formatINRCompact(opportunityGap)}</span> monthly revenue uplift identified
+                  </p>
+                </div>
+                <a href="/optimizer" style={{
+                  fontFamily: 'Outfit', fontSize: 11, fontWeight: 700, color: 'var(--bg-root)',
+                  backgroundColor: '#34D399', padding: '6px 14px', borderRadius: 6,
+                  textDecoration: 'none', textTransform: 'uppercase', letterSpacing: '0.05em',
+                }}>
+                  Open Optimizer →
+                </a>
+              </div>
+              <p style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 10, color: 'var(--text-muted)', lineHeight: 1.4, margin: '-8px 0 4px 6px' }}>
+                <span style={{ fontWeight: 600 }}>Note:</span> Monthly uplift is an estimate. It compares your recent spend pattern against what the algorithm considers the optimal distribution.
+              </p>
+              </>
+            )}
 
-          {/* Channel Table */}
-          <div style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 16, overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-            {/* Table header */}
-            <div style={{ backgroundColor: 'var(--border-subtle)', padding: '14px 24px', borderBottom: '1px solid var(--border-strong)', display: 'grid', gridTemplateColumns: '32px 1fr 110px 70px 100px', alignItems: 'center', flexShrink: 0 }}>
-              <span />
-              <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>CHANNEL</span>
-              <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'right' }}>REVENUE</span>
-              <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'center' }}>ROAS</span>
-              <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'right' }}>TREND</span>
-            </div>
+            {/* Channel Table */}
+            <div style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 16, overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+              {/* Table header */}
+              <div style={{ backgroundColor: 'var(--border-subtle)', padding: '14px 24px', borderBottom: '1px solid var(--border-strong)', display: 'grid', gridTemplateColumns: '32px 1fr 110px 70px 100px', alignItems: 'center', flexShrink: 0 }}>
+                <span />
+                <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>CHANNEL</span>
+                <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'right' }}>REVENUE</span>
+                <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'center' }}>ROAS</span>
+                <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'right' }}>TREND</span>
+              </div>
 
-            {/* Table rows */}
-            <div style={{ flex: 1, overflow: 'auto' }}>
-              {sorted.map((ch, i) => {
-                const isExpanded = expandedRow === i;
-                const isHovered = hoveredRow === i;
-                const spark = channelMonthlyRevenue[ch.channel]?.map((v, j) => ({ j, v })) || [];
+              {/* Table rows */}
+              <div style={{ flex: 1, overflow: 'auto' }}>
+                {sorted.map((ch, i) => {
+                  const isExpanded = expandedRow === i;
+                  const isHovered = hoveredRow === i;
+                  const spark = channelMonthlyRevenue[ch.channel]?.map((v, j) => ({ j, v })) || [];
 
-                return (
-                  <div key={ch.channel}>
-                    <div
-                      onClick={() => setExpandedRow(isExpanded ? null : i)}
-                      onMouseEnter={() => setHoveredRow(i)}
-                      onMouseLeave={() => setHoveredRow(null)}
-                      style={{
-                        display: 'grid', gridTemplateColumns: '32px 1fr 110px 70px 100px', alignItems: 'center',
-                        padding: '14px 24px', borderBottom: i < 9 && !isExpanded ? '1px solid var(--border-subtle)' : 'none',
-                        cursor: 'pointer', transition: 'background-color 140ms',
-                        backgroundColor: isExpanded || isHovered ? 'var(--border-subtle)' : 'transparent',
-                      }}
-                    >
-                      <span style={{ fontFamily: 'Outfit', fontSize: 12, fontWeight: 500, color: 'var(--text-muted)' }}>{i + 1}</span>
-                      <ChannelName channel={ch.channel} style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 13, fontWeight: 500, color: isHovered || isExpanded ? 'var(--text-primary)' : 'var(--text-secondary)', transition: 'color 140ms' }} />
-                      <span style={{ fontFamily: 'Outfit', fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', letterSpacing: '-0.02em', textAlign: 'right' }}>{formatINRCompact(ch.totalRevenue)}</span>
-                      <div style={{ display: 'flex', justifyContent: 'center' }}>
-                        <span style={{ backgroundColor: `${ch.color}1F`, color: ch.color, fontFamily: 'Outfit', fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 9999 }}>{ch.roas.toFixed(1)}x</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                        <div style={{ width: 90, height: 28 }}>
-                          <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={spark}>
-                              <Line type="monotone" dataKey="v" stroke={ch.color} strokeWidth={1.5} dot={false} />
-                            </LineChart>
-                          </ResponsiveContainer>
+                  return (
+                    <div key={ch.channel}>
+                      <div
+                        onClick={() => setExpandedRow(isExpanded ? null : i)}
+                        onMouseEnter={() => setHoveredRow(i)}
+                        onMouseLeave={() => setHoveredRow(null)}
+                        style={{
+                          display: 'grid', gridTemplateColumns: '32px 1fr 110px 70px 100px', alignItems: 'center',
+                          padding: '14px 24px', borderBottom: i < 9 && !isExpanded ? '1px solid var(--border-subtle)' : 'none',
+                          cursor: 'pointer', transition: 'background-color 140ms',
+                          backgroundColor: isExpanded || isHovered ? 'var(--border-subtle)' : 'transparent',
+                        }}
+                      >
+                        <span style={{ fontFamily: 'Outfit', fontSize: 12, fontWeight: 500, color: 'var(--text-muted)' }}>{i + 1}</span>
+                        <ChannelName channel={ch.channel} style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 13, fontWeight: 500, color: isHovered || isExpanded ? 'var(--text-primary)' : 'var(--text-secondary)', transition: 'color 140ms' }} />
+                        <span style={{ fontFamily: 'Outfit', fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', letterSpacing: '-0.02em', textAlign: 'right' }}>{formatINRCompact(ch.totalRevenue)}</span>
+                        <div style={{ display: 'flex', justifyContent: 'center' }}>
+                          <span style={{ backgroundColor: `${ch.color}1F`, color: ch.color, fontFamily: 'Outfit', fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 9999 }}>{ch.roas.toFixed(1)}x</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                          <div style={{ width: 90, height: 28 }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                              <LineChart data={spark}>
+                                <Line type="monotone" dataKey="v" stroke={ch.color} strokeWidth={1.5} dot={false} />
+                              </LineChart>
+                            </ResponsiveContainer>
+                          </div>
                         </div>
                       </div>
+
+                      {isExpanded && (
+                        <div style={{ backgroundColor: 'var(--border-subtle)', borderTop: '1px solid var(--border-strong)', borderBottom: i < 9 ? '1px solid var(--border-subtle)' : 'none', padding: '16px 24px', animation: 'detailSlide 180ms ease' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                            {[
+                              { label: 'REVENUE', value: formatINRCompact(ch.totalRevenue), color: 'var(--text-primary)' },
+                              { label: 'SPEND', value: formatINRCompact(ch.totalSpend), color: 'var(--text-primary)' },
+                              { label: 'ROAS', value: `${ch.roas.toFixed(1)}x`, color: ch.color },
+                              { label: 'CONVERSIONS', value: ch.conversions.toLocaleString('en-IN'), color: 'var(--text-primary)' },
+                              { label: 'NEW CUSTOMERS', value: ch.newCustomers.toLocaleString('en-IN'), color: 'var(--text-primary)' },
+                              { label: 'nCAC', value: `₹${ch.newCustomers > 0 ? Math.round(ch.totalSpend / ch.newCustomers).toLocaleString('en-IN') : '—'}`, color: 'var(--text-primary)' },
+                            ].map((m) => (
+                              <div key={m.label} style={{ backgroundColor: 'var(--bg-card)', borderRadius: 8, padding: '12px 14px' }}>
+                                <p style={{ fontFamily: 'Outfit', fontSize: 9, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{m.label}</p>
+                                <p style={{ fontFamily: 'Outfit', fontSize: 18, fontWeight: 700, color: m.color, letterSpacing: '-0.02em', marginTop: 4 }}>{m.value}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
-
-                    {isExpanded && (
-                      <div style={{ backgroundColor: 'var(--border-subtle)', borderTop: '1px solid var(--border-strong)', borderBottom: i < 9 ? '1px solid var(--border-subtle)' : 'none', padding: '16px 24px', animation: 'detailSlide 180ms ease' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-                          {[
-                            { label: 'REVENUE', value: formatINRCompact(ch.totalRevenue), color: 'var(--text-primary)' },
-                            { label: 'SPEND', value: formatINRCompact(ch.totalSpend), color: 'var(--text-primary)' },
-                            { label: 'ROAS', value: `${ch.roas.toFixed(1)}x`, color: ch.color },
-                            { label: 'CONVERSIONS', value: ch.conversions.toLocaleString('en-IN'), color: 'var(--text-primary)' },
-                            { label: 'NEW CUSTOMERS', value: ch.newCustomers.toLocaleString('en-IN'), color: 'var(--text-primary)' },
-                            { label: 'nCAC', value: `₹${ch.newCustomers > 0 ? Math.round(ch.totalSpend / ch.newCustomers).toLocaleString('en-IN') : '—'}`, color: 'var(--text-primary)' },
-                          ].map((m) => (
-                            <div key={m.label} style={{ backgroundColor: 'var(--bg-card)', borderRadius: 8, padding: '12px 14px' }}>
-                              <p style={{ fontFamily: 'Outfit', fontSize: 9, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{m.label}</p>
-                              <p style={{ fontFamily: 'Outfit', fontSize: 18, fontWeight: 700, color: m.color, letterSpacing: '-0.02em', marginTop: 4 }}>{m.value}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          </DeferredRender>
         </div>
       </div>
 

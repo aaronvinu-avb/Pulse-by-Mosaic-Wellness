@@ -14,6 +14,7 @@ import {
   computeScenarios,
   getTimeFrameMonths,
 } from '@/lib/calculations';
+import { DeferredRender } from '@/components/DeferredRender';
 import {
   Sliders,
   Lightbulb,
@@ -293,7 +294,7 @@ export default function MixOptimizer() {
             'Current Revenue': currentRevenue.toFixed(0),
             'Optimal Revenue': optimalRevenue.toFixed(0)
             };
-          }), 'Pulse_Marketing_Mix_Optimization')}
+          }), 'Luma_Marketing_Mix_Optimization')}
           className="flex items-center gap-2 px-4 py-2 rounded-xl transition-all hover:scale-105 active:scale-95"
           style={{ 
             backgroundColor: 'var(--bg-card)', 

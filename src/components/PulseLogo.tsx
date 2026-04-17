@@ -52,7 +52,7 @@ export function PulseLogo({ scale = 1, showWordmark = true }: PulseLogoProps) {
           fill="currentColor"
           letterSpacing="-0.025em"
         >
-          Pulse
+          Luma
         </text>
       )}
     </svg>

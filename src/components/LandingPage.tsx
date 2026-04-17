@@ -95,7 +95,7 @@ export function LandingPage() {
             animation: 'pu-fade-up 0.8s cubic-bezier(0.16,1,0.3,1) 0.1s both',
           }}
         >
-          Pulse
+          Luma
         </h1>
 
         {/* Byline */}

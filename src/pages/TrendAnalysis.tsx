@@ -108,50 +108,40 @@ export default function TrendAnalysis() {
   }, [monthly]);
 
   const heatmapData = useMemo(() => {
-    if (!data) return { grid: {} as Record<string, Record<string, { spend: number; revenue: number; count: number }>>, bestDay: '', worstDay: '', bestDayRoas: 0, worstDayRoas: 0 };
-    
-    const grid: Record<string, Record<string, { spend: number; revenue: number; count: number }>> = {};
-    for (const ch of CHANNELS) {
-      grid[ch] = {};
-      for (const day of DAYS) {
-        grid[ch][day] = { spend: 0, revenue: 0, count: 0 };
-      }
-    }
-
-    for (const r of data) {
-      let dayName = DOW_TO_DAY[r.day_of_week] || '';
-      if (!dayName) {
-        const d = new Date(r.date);
-        const jsDay = d.getDay();
-        dayName = DAYS[jsDay === 0 ? 6 : jsDay - 1];
-      }
-      
-      const channelGrid = grid[r.channel];
-      if (channelGrid && channelGrid[dayName]) {
-        channelGrid[dayName].spend += r.spend;
-        channelGrid[dayName].revenue += r.revenue;
-        channelGrid[dayName].count += 1;
-      }
-    }
-
-    const dayAvgs: Record<string, { totalRoas: number }> = {};
-    for (const day of DAYS) {
-      let totalSpend = 0, totalRevenue = 0;
+    // If aggregate is available, use the pre-calculated dowMap (much faster)
+    if (aggregate) {
+      const grid: Record<string, Record<string, { spend: number; revenue: number; count: number }>> = {};
       for (const ch of CHANNELS) {
-        const c = grid[ch][day];
-        if (c) { totalSpend += c.spend; totalRevenue += c.revenue; }
+        grid[ch] = {};
+        const chData = aggregate.dowMap[ch] || [];
+        for (let i = 0; i < 7; i++) {
+          const day = DAYS[i];
+          const d = chData[i] || { spend: 0, revenue: 0, count: 0 };
+          grid[ch][day] = { ...d };
+        }
       }
-      dayAvgs[day] = { totalRoas: totalSpend > 0 ? totalRevenue / totalSpend : 0 };
+
+      const dayAvgs: Record<string, { totalRoas: number }> = {};
+      for (let i = 0; i < 7; i++) {
+        const day = DAYS[i];
+        let totalSpend = 0, totalRevenue = 0;
+        for (const ch of CHANNELS) {
+          const c = grid[ch][day];
+          if (c) { totalSpend += c.spend; totalRevenue += c.revenue; }
+        }
+        dayAvgs[day] = { totalRoas: totalSpend > 0 ? totalRevenue / totalSpend : 0 };
+      }
+
+      const roasEntries = Object.entries(dayAvgs);
+      const best = roasEntries.reduce((a, b) => b[1].totalRoas > a[1].totalRoas ? b : a, roasEntries[0]);
+      const worst = roasEntries.reduce((a, b) => b[1].totalRoas < a[1].totalRoas ? b : a, roasEntries[0]);
+
+      return { grid, bestDay: best[0], worstDay: worst[0], bestDayRoas: best[1].totalRoas, worstDayRoas: worst[1].totalRoas };
     }
 
-    let bestDay = DAYS[0], worstDay = DAYS[0];
-    for (const day of DAYS) {
-      if (dayAvgs[day].totalRoas > dayAvgs[bestDay].totalRoas) bestDay = day;
-      if (dayAvgs[day].totalRoas < dayAvgs[worstDay].totalRoas) worstDay = day;
-    }
-
-    return { grid, bestDay, worstDay, bestDayRoas: dayAvgs[bestDay].totalRoas, worstDayRoas: dayAvgs[worstDay].totalRoas };
-  }, [data]);
+    // Fallback if aggregate not available (e.g. initial load)
+    return { grid: {} as any, bestDay: '', worstDay: '', bestDayRoas: 0, worstDayRoas: 0 };
+  }, [aggregate]);
 
   const spikeData = useMemo(() => {
     if (!data) return { weeklyChart: [] as any[], periods: [] as any[], spikeMonth: '' };
@@ -258,7 +248,7 @@ export default function TrendAnalysis() {
               cleanRow[ch] = row[ch];
             });
             return cleanRow;
-          }), `Pulse_Trend_Analysis_${metric}`)}
+          }), `Luma_Trend_Analysis_${metric}`)}
           className="flex items-center gap-2 px-4 py-2 rounded-xl transition-all hover:scale-105 active:scale-95"
           style={{ 
             backgroundColor: 'var(--bg-card)', 

@@ -65,7 +65,7 @@ async function fetchAllPages(): Promise<MarketingRecord[]> {
   }
 
   const end = performance.now();
-  console.log(`[Pulse] Fetched ${allRecords.length} records across ${totalPages} pages in ${((end - start) / 1000).toFixed(2)}s`);
+  console.log(`[Luma] Fetched ${allRecords.length} records across ${totalPages} pages in ${((end - start) / 1000).toFixed(2)}s`);
   
   return allRecords;
 }
@@ -78,7 +78,7 @@ export function useMarketingData(options: UseMarketingDataOptions = {}) {
       // 1. Try Cache First
       const cached = await getCache<MarketingRecord[]>(CACHE_KEY);
       if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
-        console.log('[Pulse] Loading from IndexedDB Cache');
+        console.log('[Luma] Loading from IndexedDB Cache');
         _dataSource = 'cached';
         return cached.data;
       }
@@ -114,17 +114,20 @@ export function useMarketingData(options: UseMarketingDataOptions = {}) {
     const latestDataDate = query.data.reduce((maxDate, record) => (
       record.date > maxDate ? record.date : maxDate
     ), query.data[0]?.date ?? '');
-    const nowTime = latestDataDate ? new Date(latestDataDate).getTime() : Date.now();
+    
+    // String-based grouping/filtering for performance
+    if (dateFilter === 'last30' || dateFilter === 'last90') {
+      const days = dateFilter === 'last30' ? 30 : 90;
+      const lastDate = new Date(latestDataDate);
+      lastDate.setDate(lastDate.getDate() - days);
+      const cutoff = lastDate.toISOString().slice(0, 10);
+      return query.data.filter(r => r.date >= cutoff);
+    }
+    
     return query.data.filter(r => {
       if (dateFilter === '2023') return r.date.startsWith('2023');
       if (dateFilter === '2024') return r.date.startsWith('2024');
       if (dateFilter === '2025') return r.date.startsWith('2025');
-
-      const rTime = new Date(r.date).getTime();
-      const diffDays = (nowTime - rTime) / (1000 * 3600 * 24);
-
-      if (dateFilter === 'last30') return diffDays <= 30;
-      if (dateFilter === 'last90') return diffDays <= 90;
       return true;
     });
   }, [query.data, dateFilter]);

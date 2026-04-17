@@ -23,7 +23,7 @@ export interface AggregatedState {
   weeklyMap: Record<string, Record<string, { spend: number; revenue: number }>>; // WeekKey -> Channel -> Metrics
   yearlyRevenueMap: Record<string, number>; // YearKey -> Total Revenue
   dailySeries: Record<string, { date: string; roas: number }[]>; // Channel -> Last N days
-  dowMap: Record<string, { spend: number; revenue: number }[]>; // Channel -> Day buckets [0..6]
+  dowMap: Record<string, { spend: number; revenue: number; count: number }[]>; // Channel -> Day buckets [0..6]
   totalDays: number;
 }
 
@@ -81,25 +81,26 @@ export function getAggregatedState(data: MarketingRecord[]): AggregatedState {
     m.conversions += conversions || 0;
     m.newCustomers += new_customers || 0;
 
-    // 3. Weekly Aggregation
+    // 3. Weekly Aggregation (Simplified single allocation)
     const d = new Date(date);
-    if (isNaN(d.getTime())) continue; // Skip malformed dates
-    
-    const weekStart = new Date(d);
-    weekStart.setDate(d.getDate() - (DOW_ORDER[day_of_week] || 0));
-    const weekKey = formatLocalDateKey(weekStart);
-    if (!weeklyMap[weekKey]) weeklyMap[weekKey] = {};
-    if (!weeklyMap[weekKey][channel]) weeklyMap[weekKey][channel] = { spend: 0, revenue: 0 };
-    weeklyMap[weekKey][channel].spend += spend || 0;
-    weeklyMap[weekKey][channel].revenue += revenue || 0;
+    if (!isNaN(d.getTime())) {
+      const weekStart = new Date(d);
+      weekStart.setDate(d.getDate() - (DOW_ORDER[day_of_week] || 0));
+      const weekKey = formatLocalDateKey(weekStart);
+      if (!weeklyMap[weekKey]) weeklyMap[weekKey] = {};
+      if (!weeklyMap[weekKey][channel]) weeklyMap[weekKey][channel] = { spend: 0, revenue: 0 };
+      weeklyMap[weekKey][channel].spend += spend || 0;
+      weeklyMap[weekKey][channel].revenue += revenue || 0;
+    }
 
-    // 4. Day of Week Aggregation
+    // 4. Day of Week Aggregation (for Heatmap)
     if (!dowMap[channel]) {
-      dowMap[channel] = Array.from({ length: 7 }, () => ({ spend: 0, revenue: 0 }));
+      dowMap[channel] = Array.from({ length: 7 }, () => ({ spend: 0, revenue: 0, count: 0 }));
     }
     const dowIdx = DOW_ORDER[day_of_week] !== undefined ? DOW_ORDER[day_of_week] : 0;
     dowMap[channel][dowIdx].spend += spend || 0;
     dowMap[channel][dowIdx].revenue += revenue || 0;
+    dowMap[channel][dowIdx].count += 1;
 
     // 5. Yearly Revenue Aggregation (for YoY)
     const year = date.slice(0, 4);
@@ -134,7 +135,7 @@ export function getAggregatedState(data: MarketingRecord[]): AggregatedState {
   }
 
   const end = performance.now();
-  console.log(`[Pulse] Aggregated all metrics in ${((end - start)).toFixed(2)}ms`);
+  console.log(`[Luma] Aggregated all metrics in ${((end - start)).toFixed(2)}ms`);
 
   return {
     summaries,
