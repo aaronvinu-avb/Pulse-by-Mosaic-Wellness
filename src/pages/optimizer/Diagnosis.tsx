@@ -11,7 +11,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { DashboardSkeleton } from '@/components/DashboardSkeleton';
-import { OptimizerSubnav } from '@/components/optimizer/OptimizerSubnav';
 import { useOptimizerModel } from '@/hooks/useOptimizerModel';
 import { formatINRCompact } from '@/lib/formatCurrency';
 import { CHANNELS, CHANNEL_COLORS } from '@/lib/mockData';
@@ -143,7 +142,6 @@ export default function Diagnosis() {
 
   return (
     <div style={{ maxWidth: 1200, display: 'flex', flexDirection: 'column', gap: 28 }}>
-      <OptimizerSubnav />
 
       {/* ── A. Page Header ────────────────────────────────────────────────── */}
       <div>

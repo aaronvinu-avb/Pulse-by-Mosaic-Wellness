@@ -7,7 +7,6 @@
  */
 import { Link } from 'react-router-dom';
 import { DashboardSkeleton } from '@/components/DashboardSkeleton';
-import { OptimizerSubnav } from '@/components/optimizer/OptimizerSubnav';
 import { useOptimizerModel } from '@/hooks/useOptimizerModel';
 import { formatINRCompact } from '@/lib/formatCurrency';
 import { TrendingUp, TrendingDown, Minus, ArrowLeft } from 'lucide-react';
@@ -37,7 +36,6 @@ export default function BudgetScenarios() {
 
   return (
     <div style={{ maxWidth: 1200, display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <OptimizerSubnav />
 
       {/* ── Page header ───────────────────────────────────────────────── */}
       <div>
