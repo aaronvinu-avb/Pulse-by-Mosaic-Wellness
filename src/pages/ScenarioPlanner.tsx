@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useMarketingData } from '@/hooks/useMarketingData';
 import { DashboardSkeleton } from '@/components/DashboardSkeleton';
 import { ChannelName } from '@/components/ChannelName';
-import { getChannelSaturationModels, computeScenarios } from '@/lib/calculations';
+import { computeBudgetScenarios, computeChannelBaselines, computeTimingEffects } from '@/lib/optimizer/calculations';
 import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
 import { CHANNELS } from '@/lib/mockData';
 import { DEFAULT_MONTHLY_BUDGET } from '@/contexts/OptimizerContext';
@@ -38,24 +38,60 @@ const BASELINE_BUDGET = DEFAULT_MONTHLY_BUDGET;
 const SCENARIO_BUDGETS = SCENARIO_TIERS.map(t => Math.round(BASELINE_BUDGET * t.multiplier));
 
 export default function ScenarioPlanner() {
-  const { data, isLoading } = useMarketingData();
+  const { aggregate, globalAggregate, isLoading } = useMarketingData({ includeGlobalAggregate: true });
   const [marketMultiplier, setMarketMultiplier] = useState(1.0);
 
   const scenarioLabels = SCENARIO_TIERS.map(t => t.label);
   const scenarioIcons  = SCENARIO_TIERS.map(t => t.icon);
   const scenarioColors = SCENARIO_TIERS.map(t => t.color);
 
-  const models = useMemo(() => data ? getChannelSaturationModels(data) : [], [data]);
+  const sourceData = globalAggregate ?? aggregate;
+  const baselines = useMemo(
+    () => (sourceData ? computeChannelBaselines(sourceData) : []),
+    [sourceData],
+  );
+  const timingEffects = useMemo(
+    () => (sourceData ? computeTimingEffects(sourceData) : { byChannel: {} }),
+    [sourceData],
+  );
 
-  const globalMultipliers = useMemo(() => {
-    const m: Record<string, number> = {};
-    CHANNELS.forEach(ch => (m[ch] = marketMultiplier));
-    return m;
-  }, [marketMultiplier]);
+  const historicalAllocationPct = useMemo(() => {
+    const out: Record<string, number> = {};
+    if (baselines.length === 0) {
+      const even = 100 / CHANNELS.length;
+      CHANNELS.forEach(ch => {
+        out[ch] = even;
+      });
+      return out;
+    }
+    baselines.forEach(b => {
+      out[b.channel] = b.historicalAllocationPct;
+    });
+    return out;
+  }, [baselines]);
 
-  const scenarios = useMemo(() => 
-    models.length > 0 ? computeScenarios(models, SCENARIO_BUDGETS, new Set(), globalMultipliers) : [],
-  [models, globalMultipliers]);
+  const rawScenarios = useMemo(
+    () => baselines.length > 0
+      ? computeBudgetScenarios(baselines, SCENARIO_BUDGETS, 'target', historicalAllocationPct, {
+          timingEffects,
+          planningMonth: 0,
+        })
+      : [],
+    [baselines, historicalAllocationPct, timingEffects],
+  );
+
+  const scenarios = useMemo(
+    () =>
+      rawScenarios.map(s => ({
+        ...s,
+        revenue: s.totalRevenue * marketMultiplier,
+        roas: s.budget > 0 ? (s.totalRevenue * marketMultiplier) / s.budget : 0,
+        fractions: Object.fromEntries(
+          CHANNELS.map(ch => [ch, (s.allocationsPct[ch] || 0) / 100]),
+        ) as Record<string, number>,
+      })),
+    [rawScenarios, marketMultiplier],
+  );
 
   // Forecast chart keeps three representative tracks (lowest / baseline /
   // highest) so the reader can eyeball the spread without a five-line fight.

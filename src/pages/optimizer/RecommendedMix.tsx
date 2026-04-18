@@ -16,7 +16,7 @@ import { useOptimizer } from '@/contexts/OptimizerContext';
 import { formatINRCompact } from '@/lib/formatCurrency';
 import { CHANNELS, CHANNEL_COLORS } from '@/lib/mockData';
 import { ChannelName } from '@/components/ChannelName';
-import { normalizeAllocationShares } from '@/lib/calculations';
+import { normalizeAllocationShares } from '@/lib/optimizer/calculations';
 import {
   TrendingUp, TrendingDown, Minus, ArrowRight, ArrowLeft,
   ChevronDown, ChevronRight, CheckCircle2, Sparkles, ShieldAlert,

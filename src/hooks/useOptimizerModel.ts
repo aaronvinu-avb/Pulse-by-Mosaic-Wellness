@@ -1,61 +1,6 @@
-/**
- * useOptimizerModel.ts
- *
- * Single calculation backbone for all Mix Optimiser pages.
- *
- * Data flow (strictly ordered):
- *   1. Input state (from OptimizerContext)
- *   2. Historical model inputs — raw (summaries, models, seasonality, dow, caps)
- *   3. Calibration pass — raw signals → tuned signals (winsorized ROAS, smoothed timing,
- *      confidence-adjusted alphas, inertia-stabilized allocation)
- *   4. Effective allocation (current manual, paused channels zeroed out)
- *   5. Tuned optimal allocation (from optimizer using tuned models + tuned period weights,
- *      then stabilized with inertia relative to historical)
- *   6. Current plan forecast (buildMonthlyPlanFromData with effective alloc + tuned models)
- *   7. Optimized plan forecast (same engine, stabilized optimal alloc + tuned models)
- *   8. Diagnosis (derived from current plan vs historical — does NOT read optimizedPlan)
- *   9. Recommendations (current vs optimized delta + reason codes)
- *  10. Uplift (computed ONLY from step 6 vs step 7, with confidence tier)
- *  11. Explanation layer (tuned + raw signals for Why It Works)
- *  12. Scenario outputs (same tuned model at multiple budget levels)
- *
- * Raw → Tuned distinction:
- *   All computations that affect recommended allocation or forecast revenue use
- *   TUNED values (confidence-adjusted alpha, smoothed timing weights).
- *   Raw values are preserved in the debug output and explanation layer for audit.
- */
-
-import { useMemo, useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useMarketingData } from '@/hooks/useMarketingData';
 import { useOptimizer, DEFAULT_MONTHLY_BUDGET } from '@/contexts/OptimizerContext';
-import {
-  getChannelSummaries,
-  getChannelSaturationModels,
-  getSeasonalityMetrics,
-  getDayOfWeekMetrics,
-  getChannelCapsFromData,
-  getPortfolioWeightedROAS,
-  getChannelBaselines,
-  buildMonthRange,
-  getPeriodTimeWeightSums,
-  buildMonthlyPlanFromData,
-  getOptimalSharesForPeriod,
-  classifyMixChannelEfficiency,
-  computeRevenueUpliftMetrics,
-  getPeriodicMarginalROAS,
-  getTimeFrameMonths,
-  type MonthPoint,
-  type SaturationModel,
-  type ChannelCapMetrics,
-  type ChannelBaseline,
-} from '@/lib/calculations';
-import {
-  calibrate,
-  computeTunedPeriodWeights,
-  computeTunedOptimalShares,
-  stabilizeRecommendedAllocation,
-  classifyUpliftConfidence,
-} from '@/lib/optimizerCalibration';
 import { CHANNELS } from '@/lib/mockData';
 import type {
   OptimizerModelOutput,
@@ -66,638 +11,501 @@ import type {
   ChannelExplanation,
   UpliftSummary,
 } from '@/lib/optimizerTypes';
-
-// ── Constants ─────────────────────────────────────────────────────────────────
+import type { MonthPoint } from '@/lib/calculations';
+import {
+  computeChannelBaselines,
+  computeCurrentMixForecast,
+  computeRecommendedMix,
+  computeTimingEffects,
+  classifyChannelHealth,
+  computeBudgetScenarios,
+  type ChannelBaseline,
+  type TimingEffects,
+} from '@/lib/optimizer/calculations';
 
 const TIMELINE_MONTHS: MonthPoint[] = (() => {
-  const start = 2023, end = 2027;
+  const start = 2023;
+  const end = 2027;
   return Array.from({ length: (end - start + 1) * 12 }, (_, i) => {
-    const y = start + Math.floor(i / 12), mo = i % 12;
+    const y = start + Math.floor(i / 12);
+    const mo = i % 12;
     return { key: `${y}-${String(mo + 1).padStart(2, '0')}`, year: y, month: mo };
   });
 })();
 
-// ── Reason code builder ───────────────────────────────────────────────────────
-// Now uses tunedROAS (winsorized, spend-weighted) rather than raw historical ROAS.
-// This prevents one-off spike months from distorting channel rankings.
-
-function buildReasonCodes(p: {
-  tunedROAS: number;
-  portfolioMedianROAS: number;
-  marginalROAS: number;
-  currentPct: number;
-  historicalPct: number;
-  recommendedPct: number;
-  peakBoost: number;
-  weekendBias: string;
-  isCapped: boolean;
-  capSpend: number;
-  monthlySpend: number;
-  efficiencyConfidence: number;
-  isHighVolatility: boolean;
-}): string[] {
-  const codes: string[] = [];
-
-  // Efficiency relative to portfolio median (tuned ROAS vs portfolio median tuned ROAS)
-  if (p.tunedROAS > p.portfolioMedianROAS * 1.25)      codes.push('Above benchmark efficiency');
-  else if (p.tunedROAS < p.portfolioMedianROAS * 0.75)  codes.push('Below benchmark efficiency');
-  else                                                   codes.push('Near-average efficiency');
-
-  // Marginal return signal
-  if (p.marginalROAS < 1.0)                              codes.push('Marginal returns below breakeven');
-  else if (p.marginalROAS < p.tunedROAS * 0.60)          codes.push('Marginal returns weakening');
-  else                                                   codes.push('Healthy marginal return');
-
-  // Saturation pressure
-  if (p.isCapped || (Number.isFinite(p.capSpend) && p.monthlySpend > p.capSpend * 0.85))
-    codes.push('Allocation near saturation cap');
-
-  // Allocation vs historical benchmark (5pp threshold)
-  if (p.currentPct < p.historicalPct - 5)         codes.push('Below benchmark allocation');
-  else if (p.currentPct > p.historicalPct + 5)    codes.push('Above benchmark allocation');
-
-  // Optimizer direction signal (after stabilization)
-  if (p.recommendedPct > p.currentPct + 2.5)      codes.push('Optimizer suggests increase');
-  else if (p.recommendedPct < p.currentPct - 2.5) codes.push('Optimizer suggests reduction');
-
-  // Timing advantages
-  if (p.peakBoost > 0.15) codes.push('Seasonal advantage');
-  if (p.weekendBias !== 'neutral') codes.push(`Strong ${p.weekendBias} performance`);
-
-  // Data quality warning (shown in explanation layer, not diagnosis)
-  if (p.isHighVolatility) codes.push('Performance signal is volatile');
-  else if (p.efficiencyConfidence > 0.70) codes.push('Consistent strong return profile');
-
-  return codes;
+function buildMonthRange(
+  period: '1m' | '1q' | '6m' | '1y' | 'custom',
+  customStartMonth: string,
+  customEndMonth: string,
+): MonthPoint[] {
+  if (period === 'custom') {
+    const startIdx = TIMELINE_MONTHS.findIndex(m => m.key === customStartMonth);
+    const endIdx = TIMELINE_MONTHS.findIndex(m => m.key === customEndMonth);
+    if (startIdx < 0 || endIdx < 0) return [];
+    return TIMELINE_MONTHS.slice(Math.min(startIdx, endIdx), Math.max(startIdx, endIdx) + 1);
+  }
+  const currentMonthKey = '2025-01';
+  const startIdx = Math.max(0, TIMELINE_MONTHS.findIndex(m => m.key === currentMonthKey));
+  const len = period === '1m' ? 1 : period === '1q' ? 3 : period === '6m' ? 6 : 12;
+  return TIMELINE_MONTHS.slice(startIdx, startIdx + len);
 }
 
-// ── Effective allocation (handles paused channels) ────────────────────────────
+function toPct(shares: Record<string, number>): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const ch of CHANNELS) out[ch] = (shares[ch] || 0) * 100;
+  return out;
+}
 
-function computeEffectiveAlloc(
+function toShares(pct: Record<string, number>): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const ch of CHANNELS) out[ch] = (pct[ch] || 0) / 100;
+  return out;
+}
+
+function normalizeShares(input: Record<string, number>): Record<string, number> {
+  const out: Record<string, number> = {};
+  let total = 0;
+  for (const ch of CHANNELS) {
+    const v = Math.max(0, Number.isFinite(input[ch]) ? input[ch] : 0);
+    out[ch] = v;
+    total += v;
+  }
+  if (total <= 0) {
+    const even = 1 / CHANNELS.length;
+    for (const ch of CHANNELS) out[ch] = even;
+    return out;
+  }
+  for (const ch of CHANNELS) out[ch] = out[ch] / total;
+  return out;
+}
+
+function makePlanSummary(
+  label: 'current' | 'optimized',
+  forecast: ReturnType<typeof computeCurrentMixForecast>,
+  allocationPct: Record<string, number>,
+  durationMonths: number,
+): MixPlanSummary {
+  const channels: Record<string, ChannelForecastRow> = {};
+  for (const ch of CHANNELS) {
+    const c = forecast.channels[ch];
+    channels[ch] = {
+      channel: ch,
+      allocationPct: c?.allocationPct ?? 0,
+      spend: c?.forecastSpend ?? 0,
+      periodSpend: (c?.forecastSpend ?? 0) * durationMonths,
+      revenue: c?.forecastRevenue ?? 0,
+      periodRevenue: (c?.forecastRevenue ?? 0) * durationMonths,
+      roas: c?.forecastROAS ?? 0,
+      marginalROAS: c?.marginalROAS ?? 0,
+      seasonalityMultiplier: 1,
+      dowMultiplier: 1,
+      isCapped: (c?.forecastSpend ?? 0) >= (c?.saturationSpend ?? Infinity) * 0.7,
+      capSpend: c?.saturationSpend ?? Infinity,
+    };
+  }
+  return {
+    label,
+    allocationShares: toShares(allocationPct),
+    channels,
+    totalPeriodSpend: forecast.totalSpend * durationMonths,
+    totalPeriodRevenue: forecast.totalRevenue * durationMonths,
+    blendedROAS: forecast.blendedROAS,
+  };
+}
+
+function diagnosisReason(status: ChannelDiagnosis['status']): string {
+  if (status === 'saturated') return 'Marginal returns below breakeven';
+  if (status === 'over-scaled') return 'Allocation appears above efficient range';
+  if (status === 'under-scaled') return 'High efficiency, under-invested';
+  return 'Efficient allocation';
+}
+
+function buildUpliftConfidence(
+  upliftPct: number,
+  avgConfidence: number,
+): { tier: 'high' | 'moderate' | 'exploratory'; note: string } {
+  if (avgConfidence >= 0.65 && upliftPct >= 1.5) {
+    return {
+      tier: 'high',
+      note: 'Multiple channels show stable patterns and the projected uplift is meaningful.',
+    };
+  }
+  if (avgConfidence >= 0.38 && upliftPct >= 0.3) {
+    return {
+      tier: 'moderate',
+      note: 'The direction is supported by historical data, though exact uplift can vary.',
+    };
+  }
+  return {
+    tier: 'exploratory',
+    note: 'Signal quality is limited, so treat this as directional guidance.',
+  };
+}
+
+function effectiveAllocationShares(
   allocations: Record<string, number>,
   paused: Set<string>,
 ): Record<string, number> {
   const active = CHANNELS.filter(ch => !paused.has(ch));
-  const activeTotal = active.reduce((s, ch) => s + (allocations[ch] || 0), 0);
-  const eff: Record<string, number> = {};
+  if (active.length === 0) return normalizeShares(allocations);
+  const activeTotal = active.reduce((s, ch) => s + Math.max(0, allocations[ch] || 0), 0);
+  const out: Record<string, number> = {};
   for (const ch of CHANNELS) {
-    if (paused.has(ch)) { eff[ch] = 0; continue; }
-    eff[ch] = activeTotal > 0 ? (allocations[ch] || 0) / activeTotal : 1 / active.length;
+    if (paused.has(ch)) out[ch] = 0;
+    else out[ch] = activeTotal > 0 ? Math.max(0, allocations[ch] || 0) / activeTotal : 1 / active.length;
   }
-  const sum = Object.values(eff).reduce((s, v) => s + v, 0);
-  if (sum > 0) for (const k of Object.keys(eff)) eff[k] /= sum;
-  return eff;
+  return normalizeShares(out);
 }
 
-// ── Plan summary builder ──────────────────────────────────────────────────────
-
-function buildPlanSummary(
-  label: 'current' | 'optimized',
-  allocationShares: Record<string, number>,
-  planResult: ReturnType<typeof buildMonthlyPlanFromData>,
-  tunedModels: SaturationModel[],
-  tunedPeriodWeights: Record<string, number>,
-  durationMonths: number,
-): MixPlanSummary {
-  const denom = Math.max(1, durationMonths);
-  const channels: Record<string, ChannelForecastRow> = {};
-
+function buildTimingWeights(timingEffects: TimingEffects, planningMonth: number | null): Record<string, number> {
+  const out: Record<string, number> = {};
   for (const ch of CHANNELS) {
-    const totals       = planResult.channelTotals[ch] || { spend: 0, revenue: 0 };
-    const model        = tunedModels.find(m => m.channel === ch);
-    const monthlySpend = totals.spend / denom;
-    const pw           = tunedPeriodWeights[ch] ?? 1;
-    const marginalROAS = model ? getPeriodicMarginalROAS(model, monthlySpend, pw) : 0;
-    const roas         = totals.spend > 0 ? totals.revenue / totals.spend : 0;
-    const cell         = planResult.rows[0]?.cells[ch];
-
-    channels[ch] = {
-      channel: ch,
-      allocationPct:         Math.round((allocationShares[ch] || 0) * 1000) / 10,
-      spend:                 monthlySpend,
-      periodSpend:           totals.spend,
-      revenue:               totals.revenue / denom,
-      periodRevenue:         totals.revenue,
-      roas,
-      marginalROAS,
-      seasonalityMultiplier: cell?.seasonalityMultiplier ?? 1,
-      dowMultiplier:         cell?.dayOfWeekMultiplier   ?? 1,
-      isCapped:              cell?.capped                ?? false,
-      capSpend:              cell?.capSpend              ?? Infinity,
-    };
+    const t = timingEffects.byChannel[ch];
+    if (!t || planningMonth == null || planningMonth < 0 || planningMonth > 11 || t.monthlyStrength === 'weak') {
+      out[ch] = 1;
+      continue;
+    }
+    out[ch] = 0.8 + 0.2 * (t.monthlyIndex[planningMonth] ?? 1);
   }
-
-  return {
-    label,
-    allocationShares,
-    channels,
-    totalPeriodSpend:   planResult.totalSpend,
-    totalPeriodRevenue: planResult.totalRevenue,
-    blendedROAS: planResult.totalSpend > 0
-      ? planResult.totalRevenue / planResult.totalSpend
-      : 0,
-  };
+  return out;
 }
-
-// ── Main hook ─────────────────────────────────────────────────────────────────
 
 export function useOptimizerModel(): OptimizerModelOutput {
   const {
-    data, aggregate, globalAggregate, isLoading,
-    dataSource, dataUpdatedAt, auditReport, boundaries,
+    aggregate,
+    globalAggregate,
+    isLoading,
+    dataSource,
+    dataUpdatedAt,
+    auditReport,
+    boundaries,
   } = useMarketingData({ includeGlobalAggregate: true });
 
   const {
-    budget, setBudget,
-    planningPeriod, planningMode,
-    customStartMonth, customEndMonth,
-    allocations, setAllocations,
+    budget,
+    planningPeriod,
+    planningMode,
+    customStartMonth,
+    customEndMonth,
+    allocations,
+    setAllocations,
     paused,
   } = useOptimizer();
 
-  // Single source of truth for every downstream computation.
-  // `globalAggregate` (full unfiltered history) is the canonical input when
-  // available — this guarantees calibration, seasonality, dow, and baselines
-  // all see the same underlying totals. `aggregate` is a per-filter fallback.
-  // Raw `data` is intentionally NOT accepted here because every consumer
-  // needs an AggregatedState (not a flat record array) to produce correct
-  // sum/sum ROAS, monthly volatility, and per-channel coverage stats.
   const sourceData = globalAggregate ?? aggregate;
-
-  // ── Step 2: Raw historical model inputs ──────────────────────────────────────
-  const summaries = useMemo(
-    () => sourceData ? getChannelSummaries(sourceData) : [],
-    [sourceData],
+  const safeBudget = Number.isFinite(budget) && budget > 0 ? budget : DEFAULT_MONTHLY_BUDGET;
+  const selectedRange = useMemo(
+    () => buildMonthRange(planningPeriod, customStartMonth, customEndMonth),
+    [planningPeriod, customStartMonth, customEndMonth],
   );
+  const durationMonths = Math.max(1, selectedRange.length);
+  const totalPeriodBudget = safeBudget * durationMonths;
+  const planningMonth = planningPeriod === '1m' && selectedRange[0] ? selectedRange[0].month : null;
 
-  const rawModels = useMemo(
-    () => sourceData ? getChannelSaturationModels(sourceData) : [],
-    [sourceData],
-  );
-
-  const rawSeasonality = useMemo(
-    () => sourceData ? getSeasonalityMetrics(sourceData) : [],
-    [sourceData],
-  );
-
-  const rawDowMetrics = useMemo(
-    () => sourceData ? getDayOfWeekMetrics(sourceData) : [],
-    [sourceData],
-  );
-
-  const caps = useMemo(
-    () => getChannelCapsFromData(sourceData || []),
-    [sourceData],
-  );
-
-  const portfolioROAS = useMemo(
-    () => getPortfolioWeightedROAS(summaries),
-    [summaries],
-  );
-
-  const totalHistoricalMonths = useMemo(
-    () => sourceData ? getTimeFrameMonths(sourceData) : 1,
-    [sourceData],
-  );
-
-  // Shared channel baselines — the single source of truth for historical metrics
-  // (sum/sum ROAS, allocation share, monthly averages, volatility). All four
-  // optimizer pages should prefer `baselines` over re-deriving their own values.
   const baselines = useMemo<ChannelBaseline[]>(
-    () => sourceData ? getChannelBaselines(sourceData) : [],
+    () => (sourceData ? computeChannelBaselines(sourceData) : []),
     [sourceData],
+  );
+  const timingEffects = useMemo(
+    () => (sourceData ? computeTimingEffects(sourceData) : { byChannel: {} }),
+    [sourceData],
+  );
+  const tunedPeriodWeights = useMemo(
+    () => buildTimingWeights(timingEffects, planningMonth),
+    [timingEffects, planningMonth],
+  );
+  const rawPeriodWeights = useMemo(
+    () => Object.fromEntries(CHANNELS.map(ch => [ch, 1])),
+    [],
   );
 
   const historicalFractions = useMemo(() => {
-    const f: Record<string, number> = {};
-    if (baselines.length > 0) {
+    const out: Record<string, number> = {};
+    if (baselines.length === 0) {
+      const even = 1 / CHANNELS.length;
       CHANNELS.forEach(ch => {
-        const b = baselines.find(x => x.channel === ch);
-        f[ch] = b ? b.historicalAllocationPct : 1 / CHANNELS.length;
+        out[ch] = even;
       });
-      return f;
+      return out;
     }
-    // Fallback — baselines not yet computed (no data).
-    CHANNELS.forEach(ch => { f[ch] = 1 / CHANNELS.length; });
-    return f;
+    for (const b of baselines) out[b.channel] = b.historicalAllocationPct / 100;
+    return normalizeShares(out);
   }, [baselines]);
 
-  // `avgMonthlySpend` is retained for diagnostic/scenario callers that want to
-  // compare a user-chosen budget against the historical run-rate. It is NOT
-  // used to seed the budget input anymore — the optimizer starts at the
-  // product-level DEFAULT_MONTHLY_BUDGET (₹50L) and only ever changes when
-  // the user explicitly types a new value.
-  const avgMonthlySpend = useMemo(
-    () => summaries.length === 0
-      ? DEFAULT_MONTHLY_BUDGET
-      : Math.round(summaries.reduce((s, c) => s + c.totalSpend, 0) / Math.max(1, totalHistoricalMonths)),
-    [summaries, totalHistoricalMonths],
-  );
-
-  // ── Step 1 side-effects: seed allocations from history ─────────────────────
-  // NOTE: We intentionally DO NOT seed `budget` from historical spend. Doing
-  // so previously produced a ~₹6.32Cr default (3-year × 10-channel run-rate)
-  // that confused users and didn't match the product's intended ₹50L baseline.
   useEffect(() => {
     if (Object.keys(allocations).length > 0) return;
     setAllocations({ ...historicalFractions });
-  }, [historicalFractions, allocations, setAllocations]);
+  }, [allocations, historicalFractions, setAllocations]);
 
-  // ── Step 3: Calibration pass ─────────────────────────────────────────────────
-  // Produces tuned models, smoothed timing profiles, and confidence scores.
-  // This memo is STABLE — only re-runs when sourceData changes.
-  const calibration = useMemo(
-    () => {
-      if (!sourceData || rawModels.length === 0) return null;
-      return calibrate(sourceData, rawModels, rawSeasonality, rawDowMetrics);
-    },
-    [sourceData, rawModels, rawSeasonality, rawDowMetrics],
-  );
-
-  // Safe accessors for calibration outputs (fall back to raw if not available)
-  const tunedModels       = calibration?.tunedModels       ?? rawModels;
-  const channelProfiles   = calibration?.channelProfiles   ?? {};
-  const seasonalProfiles  = calibration?.seasonalityProfiles ?? {};
-  const dowProfiles       = calibration?.dowProfiles       ?? {};
-  const portfolioMedianROAS = calibration?.portfolioMedianROAS ?? portfolioROAS;
-  const portfolioAvgConfidence = calibration?.portfolioAvgConfidence ?? 0.5;
-
-  // ── Planning range ────────────────────────────────────────────────────────
-
-  const safeBudget = useMemo(
-    () => Number.isFinite(budget) && budget > 0 ? budget : DEFAULT_MONTHLY_BUDGET,
-    [budget],
-  );
-
-  const modeMultiplier =
-    planningMode === 'conservative' ? 0.8 :
-    planningMode === 'aggressive'   ? 1.2 : 1.0;
-
-  const selectedRange = useMemo(
-    () => buildMonthRange(TIMELINE_MONTHS, '2025-01', planningPeriod, customStartMonth, customEndMonth),
-    [planningPeriod, customStartMonth, customEndMonth],
-  );
-
-  const durationMonths    = Math.max(1, selectedRange.length);
-  const totalPeriodBudget = safeBudget * durationMonths;
-
-  // Raw period weights (from unsmoothed seasonality + dow — kept for debug/comparison)
-  const rawPeriodWeights = useMemo(
-    () => sourceData ? getPeriodTimeWeightSums(sourceData, selectedRange) : {},
-    [sourceData, selectedRange],
-  );
-
-  // Tuned period weights (from smoothed + shrunk seasonality + dow indices)
-  // Used by optimizer and marginal ROAS computation — replaces raw period weights.
-  const tunedPeriodWeights = useMemo(
-    () => Object.keys(seasonalProfiles).length > 0
-      ? computeTunedPeriodWeights(seasonalProfiles, dowProfiles, selectedRange)
-      : rawPeriodWeights,
-    [seasonalProfiles, dowProfiles, selectedRange, rawPeriodWeights],
-  );
-
-  // ── Step 4: Effective allocation ──────────────────────────────────────────
-  const effectiveAlloc = useMemo(
-    () => computeEffectiveAlloc(allocations, paused),
+  const effectiveShares = useMemo(
+    () => effectiveAllocationShares(allocations, paused),
     [allocations, paused],
   );
+  const currentAllocationPct = useMemo(() => toPct(effectiveShares), [effectiveShares]);
 
-  // ── Step 5: Tuned optimal allocation ──────────────────────────────────────
-  // Uses tuned models (confidence-adjusted alpha) + tuned period weights (smoothed timing).
-  // Then applies inertia stabilization to prevent aggressive reallocation from weak signals.
-  const rawTunedOptimalShares = useMemo(
-    () => {
-      if (tunedModels.length === 0 || Object.keys(tunedPeriodWeights).length === 0) {
-        return getOptimalSharesForPeriod({ data: sourceData || [], selectedMonths: selectedRange, monthlyBudget: safeBudget });
-      }
-      return computeTunedOptimalShares(tunedModels, safeBudget, tunedPeriodWeights, channelProfiles);
-    },
-    [tunedModels, safeBudget, tunedPeriodWeights, channelProfiles, sourceData, selectedRange],
+  const currentForecast = useMemo(
+    () => computeCurrentMixForecast(currentAllocationPct, safeBudget, baselines, { timingEffects, planningMonth }),
+    [currentAllocationPct, safeBudget, baselines, timingEffects, planningMonth],
   );
-
-  // Apply inertia — blends optimal toward historical to prevent over-reactive recommendations
-  const stabilizedOptimalShares = useMemo(
-    () => Object.keys(channelProfiles).length > 0
-      ? stabilizeRecommendedAllocation(rawTunedOptimalShares, historicalFractions, channelProfiles)
-      : rawTunedOptimalShares,
-    [rawTunedOptimalShares, historicalFractions, channelProfiles],
-  );
-
-  // ── Step 6: Current plan forecast ─────────────────────────────────────────
-  // Uses tuned saturation models so revenue is forecast with calibrated alphas.
-  const currentPlanResult = useMemo(
-    () => buildMonthlyPlanFromData({
-      data:             sourceData || [],
-      selectedMonths:   selectedRange,
-      monthlyBudget:    safeBudget,
-      modeMultiplier,
-      allocationShares: effectiveAlloc,
-      saturationModels: tunedModels,
-    }),
-    [sourceData, selectedRange, safeBudget, modeMultiplier, effectiveAlloc, tunedModels],
-  );
-
-  // ── Step 7: Optimized plan forecast ───────────────────────────────────────
-  // Same tuned models as Step 6 — ONLY allocation shares differ.
-  const optimizedPlanResult = useMemo(
-    () => buildMonthlyPlanFromData({
-      data:             sourceData || [],
-      selectedMonths:   selectedRange,
-      monthlyBudget:    safeBudget,
-      modeMultiplier,
-      allocationShares: stabilizedOptimalShares,
-      saturationModels: tunedModels,
-    }),
-    [sourceData, selectedRange, safeBudget, modeMultiplier, stabilizedOptimalShares, tunedModels],
+  const recommended = useMemo(
+    () => computeRecommendedMix(baselines, safeBudget, planningMode, currentAllocationPct, { timingEffects, planningMonth }),
+    [baselines, safeBudget, planningMode, currentAllocationPct, timingEffects, planningMonth],
   );
 
   const currentPlan = useMemo(
-    () => buildPlanSummary('current', effectiveAlloc, currentPlanResult, tunedModels, tunedPeriodWeights, durationMonths),
-    [effectiveAlloc, currentPlanResult, tunedModels, tunedPeriodWeights, durationMonths],
+    () => makePlanSummary('current', currentForecast, currentAllocationPct, durationMonths),
+    [currentForecast, currentAllocationPct, durationMonths],
   );
-
   const optimizedPlan = useMemo(
-    () => buildPlanSummary('optimized', stabilizedOptimalShares, optimizedPlanResult, tunedModels, tunedPeriodWeights, durationMonths),
-    [stabilizedOptimalShares, optimizedPlanResult, tunedModels, tunedPeriodWeights, durationMonths],
+    () => makePlanSummary('optimized', recommended.forecast, recommended.allocationsPct, durationMonths),
+    [recommended, durationMonths],
   );
 
-  // ── Step 8: Diagnosis ─────────────────────────────────────────────────────
-  // Uses tunedROAS (not raw ROAS) for channel comparisons so outlier-heavy channels
-  // are not over- or under-classified.
+  const portfolioROASHistorical = useMemo(() => {
+    const spend = baselines.reduce((s, b) => s + b.totalSpend, 0);
+    const rev = baselines.reduce((s, b) => s + b.totalRevenue, 0);
+    return spend > 0 ? rev / spend : 0;
+  }, [baselines]);
+
   const diagnosis = useMemo((): Record<string, ChannelDiagnosis> => {
-    const capMap: Record<string, ChannelCapMetrics> = {};
-    caps.forEach(c => (capMap[c.channel] = c));
-    const result: Record<string, ChannelDiagnosis> = {};
-
+    const out: Record<string, ChannelDiagnosis> = {};
     for (const ch of CHANNELS) {
-      const s          = summaries.find(x => x.channel === ch);
-      const m          = tunedModels.find(x => x.channel === ch);
-      const profile    = channelProfiles[ch];
-      const curRow     = currentPlan.channels[ch];
-      const histPct    = (historicalFractions[ch] || 0) * 100;
-      const curPct     = curRow?.allocationPct || 0;
-      const deltaPct   = curPct - histPct;
-      // Use tunedROAS for comparison — more stable than raw historical ROAS
-      const channelROAS = profile?.tunedROAS ?? s?.roas ?? 0;
-      const marg        = curRow?.marginalROAS || 0;
-      const cap         = capMap[ch];
-
-      const status = (s && m) ? classifyMixChannelEfficiency({
-        optimalFraction:     stabilizedOptimalShares[ch] || 0,
-        manualFraction:      effectiveAlloc[ch]          || 0,
-        model:               m,
-        cap,
-        // Use portfolioMedianROAS (from tuned data) instead of raw portfolio average
-        portfolioAvgROAS:    portfolioMedianROAS,
-        monthlyBudget:       safeBudget,
-        summaryROAS:         channelROAS,
-        periodTimeWeightSum: tunedPeriodWeights[ch] ?? 1,
-      }) : 'efficient';
-
-      const isSaturated     = status === 'saturated';
-      const isOverWeighted  = deltaPct > 5;
-      const isUnderWeighted = deltaPct < -5;
-      // Only flag a channel if: status is not efficient AND we have reasonable confidence
-      // Low-confidence channels get a softer flag to avoid over-labeling noise
-      const isFlagged = status !== 'efficient' && (profile?.efficiencyConfidence ?? 0.5) > 0.20;
-
-      let reasonCode = 'Efficient allocation';
-      if (isSaturated)                   reasonCode = 'Marginal returns below breakeven';
-      else if (status === 'over-scaled') reasonCode = isOverWeighted
-        ? 'Allocation appears above efficient range'
-        : 'Receiving more than efficiency justifies';
-      else if (status === 'under-scaled') reasonCode = 'High efficiency, under-invested';
-
-      let explanation = `${ch} is receiving ${curPct.toFixed(0)}% of budget (historical: ${histPct.toFixed(0)}%) with a ${channelROAS.toFixed(2)}x return profile — near the blended median of ${portfolioMedianROAS.toFixed(2)}x.`;
-      if (isSaturated) {
-        explanation = `${ch} shows diminishing returns. Marginal ROAS at current spend is ${marg.toFixed(2)}x — each additional rupee returns less than ₹1. Reducing spend here and reallocating to under-invested channels can improve blended return.`;
-      } else if (status === 'over-scaled') {
-        explanation = `${ch} is receiving ${curPct.toFixed(0)}% but its return profile (${channelROAS.toFixed(2)}x) doesn't fully justify this relative to the blended median (${portfolioMedianROAS.toFixed(2)}x). The model would reduce this allocation.`;
-      } else if (status === 'under-scaled') {
-        explanation = `${ch} has a strong ${channelROAS.toFixed(2)}x return profile but is receiving only ${curPct.toFixed(0)}% of budget. There may be room to scale before hitting diminishing returns.`;
-      }
-
-      result[ch] = {
-        channel: ch, status, isFlagged,
-        currentPct: curPct, historicalPct: histPct, deltaPct,
-        historicalROAS: channelROAS, portfolioROAS: portfolioMedianROAS, marginalROAS: marg,
-        isSaturated, isOverWeighted, isUnderWeighted,
-        reasonCode, explanation,
+      const b = baselines.find(x => x.channel === ch);
+      const cur = currentPlan.channels[ch];
+      const histPct = (historicalFractions[ch] || 0) * 100;
+      const curPct = cur?.allocationPct || 0;
+      const deltaPct = curPct - histPct;
+      const health = b
+        ? classifyChannelHealth(b, safeBudget, curPct, portfolioROASHistorical)
+        : {
+            status: 'efficient' as const,
+            lowerEfficientSpend: 0,
+            upperEfficientSpend: 0,
+            saturationSpend: Infinity,
+            currentSpend: 0,
+            marginalROAS: 0,
+          };
+      const reasonCode = diagnosisReason(health.status);
+      const explanation =
+        health.status === 'saturated'
+          ? `${ch} is nearing saturation. Marginal ROAS is ${health.marginalROAS.toFixed(2)}x, so extra spend now produces weaker return.`
+          : health.status === 'over-scaled'
+            ? `${ch} is above its efficient spend band. Reallocating some budget can improve blended ROAS.`
+            : health.status === 'under-scaled'
+              ? `${ch} is under-invested versus its efficiency profile. It has headroom before saturation.`
+              : `${ch} is within its efficient spend range.`;
+      out[ch] = {
+        channel: ch,
+        status: health.status,
+        isFlagged: health.status !== 'efficient',
+        currentPct: curPct,
+        historicalPct: histPct,
+        deltaPct,
+        historicalROAS: b?.historicalROAS ?? 0,
+        portfolioROAS: portfolioROASHistorical,
+        marginalROAS: health.marginalROAS,
+        isSaturated: health.status === 'saturated',
+        isOverWeighted: health.status === 'over-scaled',
+        isUnderWeighted: health.status === 'under-scaled',
+        reasonCode,
+        explanation,
       };
     }
-    return result;
-  }, [summaries, tunedModels, caps, currentPlan, historicalFractions, effectiveAlloc,
-      stabilizedOptimalShares, portfolioMedianROAS, safeBudget, tunedPeriodWeights,
-      channelProfiles]);
+    return out;
+  }, [baselines, currentPlan, historicalFractions, safeBudget, portfolioROASHistorical]);
 
-  const flaggedChannels      = useMemo(() => CHANNELS.filter(ch => diagnosis[ch]?.isFlagged),       [diagnosis]);
-  const overWeightedChannels  = useMemo(() => CHANNELS.filter(ch => diagnosis[ch]?.isOverWeighted),  [diagnosis]);
+  const recommendations = useMemo((): Record<string, ChannelRecommendation> => {
+    const out: Record<string, ChannelRecommendation> = {};
+    for (const ch of CHANNELS) {
+      const currentPct = currentPlan.channels[ch]?.allocationPct || 0;
+      const recommendedPct = recommended.allocationsPct[ch] || 0;
+      const deltaPct = Number((recommendedPct - currentPct).toFixed(1));
+      const direction: 'increase' | 'decrease' | 'hold' =
+        deltaPct > 0.5 ? 'increase' : deltaPct < -0.5 ? 'decrease' : 'hold';
+      const b = baselines.find(x => x.channel === ch);
+      const reasonCodes: string[] = [];
+      if ((currentPlan.channels[ch]?.marginalROAS || 0) < 1) reasonCodes.push('Marginal returns below breakeven');
+      if ((currentPlan.channels[ch]?.marginalROAS || 0) > portfolioROASHistorical) reasonCodes.push('Above benchmark efficiency');
+      if (timingEffects.byChannel[ch]?.monthlyStrength === 'strong') reasonCodes.push('Seasonal advantage');
+      if (reasonCodes.length === 0) reasonCodes.push('Near-average efficiency');
+      const explanation =
+        direction === 'increase'
+          ? `Increase from ${currentPct.toFixed(1)}% to ${recommendedPct.toFixed(1)}% based on higher marginal efficiency.`
+          : direction === 'decrease'
+            ? `Reduce from ${currentPct.toFixed(1)}% to ${recommendedPct.toFixed(1)}% because marginal return has weakened.`
+            : `Hold near ${recommendedPct.toFixed(1)}% because this channel is already near its efficient zone.`;
+      out[ch] = {
+        channel: ch,
+        currentPct,
+        recommendedPct,
+        deltaPct,
+        direction,
+        primaryReasonCode: reasonCodes[0],
+        reasonCodes,
+        explanation,
+      };
+      void b;
+    }
+    return out;
+  }, [currentPlan, recommended, baselines, timingEffects, portfolioROASHistorical]);
+
+  const flaggedChannels = useMemo(() => CHANNELS.filter(ch => diagnosis[ch]?.isFlagged), [diagnosis]);
+  const overWeightedChannels = useMemo(() => CHANNELS.filter(ch => diagnosis[ch]?.isOverWeighted), [diagnosis]);
   const underWeightedChannels = useMemo(() => CHANNELS.filter(ch => diagnosis[ch]?.isUnderWeighted), [diagnosis]);
 
-  // ── Step 9: Recommendations ───────────────────────────────────────────────
-  const recommendations = useMemo((): Record<string, ChannelRecommendation> => {
-    const capMap: Record<string, ChannelCapMetrics> = {};
-    caps.forEach(c => (capMap[c.channel] = c));
-    const result: Record<string, ChannelRecommendation> = {};
-
-    for (const ch of CHANNELS) {
-      const curPct   = currentPlan.channels[ch]?.allocationPct || 0;
-      const recPct   = Math.round((stabilizedOptimalShares[ch] || 0) * 1000) / 10;
-      const deltaPct = Math.round((recPct - curPct) * 10) / 10;
-      // Wider "hold" band (2.5pp vs 1.5pp) since stabilization already dampens noise
-      const direction: 'increase' | 'decrease' | 'hold' =
-        deltaPct > 2.5 ? 'increase' : deltaPct < -2.5 ? 'decrease' : 'hold';
-
-      const profile      = channelProfiles[ch];
-      const tunedROAS    = profile?.tunedROAS ?? summaries.find(s => s.channel === ch)?.roas ?? 0;
-      const marg         = currentPlan.channels[ch]?.marginalROAS || 0;
-      const histPct      = (historicalFractions[ch] || 0) * 100;
-      const sea          = seasonalProfiles[ch];
-      const dow          = dowProfiles[ch];
-      const cap          = capMap[ch];
-      const monthlySpend = currentPlan.channels[ch]?.spend || 0;
-
-      const reasonCodes = buildReasonCodes({
-        tunedROAS,
-        portfolioMedianROAS,
-        marginalROAS:         marg,
-        currentPct:           curPct,
-        historicalPct:        histPct,
-        recommendedPct:       recPct,
-        peakBoost:            sea?.peakBoost || 0,
-        weekendBias:          dow?.weekendBias || 'neutral',
-        isCapped:             currentPlan.channels[ch]?.isCapped || false,
-        capSpend:             cap?.capSpend ?? Infinity,
-        monthlySpend,
-        efficiencyConfidence: profile?.efficiencyConfidence ?? 0.5,
-        isHighVolatility:     profile?.isHighVolatility ?? false,
-      });
-
-      let explanation = `Hold at ${recPct.toFixed(1)}% — ${(reasonCodes[0] || 'near-average efficiency').toLowerCase()}.`;
-      if (direction === 'increase') {
-        const positives = reasonCodes.filter(c =>
-          c.includes('efficiency') || c.includes('advantage') || c.includes('Healthy') || c.includes('Consistent'));
-        explanation = `Increase from ${curPct.toFixed(1)}% → ${recPct.toFixed(1)}%. ${positives.join('; ') || 'Positive marginal return still available at higher spend'}.`;
-      } else if (direction === 'decrease') {
-        const negatives = reasonCodes.filter(c =>
-          c.includes('weakening') || c.includes('saturati') || c.includes('Below') || c.includes('breakeven'));
-        explanation = `Reduce from ${curPct.toFixed(1)}% → ${recPct.toFixed(1)}%. ${negatives.join('; ') || 'Efficiency concerns at current spend level'}.`;
-      }
-
-      result[ch] = {
-        channel: ch, currentPct: curPct, recommendedPct: recPct, deltaPct, direction,
-        primaryReasonCode: reasonCodes[0] || '', reasonCodes, explanation,
-      };
-    }
-    return result;
-  }, [currentPlan, stabilizedOptimalShares, summaries, channelProfiles, historicalFractions,
-      seasonalProfiles, dowProfiles, caps, portfolioMedianROAS]);
-
-  // ── Step 10: Uplift ───────────────────────────────────────────────────────
-  // Both plans use the SAME tuned forecast engine — only allocation differs.
-  // Uplift confidence tier reflects data quality, not just magnitude.
   const uplift = useMemo((): UpliftSummary => {
-    const { revenueOpportunity, upliftPct, isNearOptimal } = computeRevenueUpliftMetrics(
-      currentPlan.totalPeriodRevenue,
-      optimizedPlan.totalPeriodRevenue,
-    );
+    const revenueOpportunity = optimizedPlan.totalPeriodRevenue - currentPlan.totalPeriodRevenue;
+    const upliftPct = currentPlan.totalPeriodRevenue > 0 ? (revenueOpportunity / currentPlan.totalPeriodRevenue) * 100 : 0;
     const roasImprovement = optimizedPlan.blendedROAS - currentPlan.blendedROAS;
-
+    const isNearOptimal = Math.abs(upliftPct) <= 0.35;
     const topIncreases = CHANNELS
       .filter(ch => recommendations[ch]?.direction === 'increase')
       .sort((a, b) => (recommendations[b]?.deltaPct || 0) - (recommendations[a]?.deltaPct || 0))
       .slice(0, 4)
       .map(ch => recommendations[ch]);
-
     const topReductions = CHANNELS
       .filter(ch => recommendations[ch]?.direction === 'decrease')
       .sort((a, b) => (recommendations[a]?.deltaPct || 0) - (recommendations[b]?.deltaPct || 0))
       .slice(0, 4)
       .map(ch => recommendations[ch]);
-
-    // Combine top movers for confidence assessment
-    const allTop = [...topIncreases, ...topReductions].filter(Boolean);
-    const upliftConfidence = classifyUpliftConfidence(
-      isNearOptimal ? 0 : upliftPct,
-      portfolioAvgConfidence,
-      allTop,
-    );
-
+    const avgConfidence = mean(baselines.map(b => 1 / (1 + Math.max(0, b.monthlyROASCV))));
     return {
-      revenueOpportunity, upliftPct, isNearOptimal,
+      revenueOpportunity,
+      upliftPct,
+      isNearOptimal,
       currentROAS: currentPlan.blendedROAS,
       recommendedROAS: optimizedPlan.blendedROAS,
-      roasImprovement, topIncreases, topReductions,
-      upliftConfidence,
+      roasImprovement,
+      topIncreases,
+      topReductions,
+      upliftConfidence: buildUpliftConfidence(upliftPct, avgConfidence),
     };
-  }, [currentPlan, optimizedPlan, recommendations, portfolioAvgConfidence]);
+  }, [optimizedPlan, currentPlan, recommendations, baselines]);
 
-  // ── Step 11: Explanation layer ────────────────────────────────────────────
-  // Exposes both raw and tuned signals so Why It Works can show the delta.
   const explanation = useMemo((): Record<string, ChannelExplanation> => {
-    const capMap: Record<string, ChannelCapMetrics> = {};
-    caps.forEach(c => (capMap[c.channel] = c));
-    const result: Record<string, ChannelExplanation> = {};
-
+    const out: Record<string, ChannelExplanation> = {};
     for (const ch of CHANNELS) {
-      const tunedModel  = tunedModels.find(m => m.channel === ch);
-      const rawModel    = rawModels.find(m => m.channel === ch);
-      const sea         = seasonalProfiles[ch];
-      const dow         = dowProfiles[ch];
-      const cap         = capMap[ch];
-      const profile     = channelProfiles[ch];
-      const curSpend    = currentPlan.channels[ch]?.spend || 0;
-      const recSpend    = optimizedPlan.channels[ch]?.spend || 0;
-      const pw          = tunedPeriodWeights[ch] ?? 1;
-      const rawROAS     = summaries.find(s => s.channel === ch)?.roas ?? 0;
-      const tunedROAS   = profile?.tunedROAS ?? rawROAS;
-      const histPct     = (historicalFractions[ch] || 0) * 100;
-      const curPct      = currentPlan.channels[ch]?.allocationPct || 0;
-      const recPct      = Math.round((stabilizedOptimalShares[ch] || 0) * 1000) / 10;
-      const margAtCur   = tunedModel ? getPeriodicMarginalROAS(tunedModel, curSpend, pw) : 0;
-      const margAtRec   = tunedModel ? getPeriodicMarginalROAS(tunedModel, recSpend, pw) : 0;
-
-      const reasonCodes = buildReasonCodes({
-        tunedROAS, portfolioMedianROAS, marginalROAS: margAtCur,
-        currentPct: curPct, historicalPct: histPct, recommendedPct: recPct,
-        peakBoost: sea?.peakBoost || 0, weekendBias: dow?.weekendBias || 'neutral',
-        isCapped: currentPlan.channels[ch]?.isCapped || false,
-        capSpend: cap?.capSpend ?? Infinity, monthlySpend: curSpend,
-        efficiencyConfidence: profile?.efficiencyConfidence ?? 0.5,
-        isHighVolatility: profile?.isHighVolatility ?? false,
-      });
-
-      // Use tuned scatter points from tuned model if available,
-      // fall back to raw model scatter for visual display
-      const saturationCurve = (tunedModel ?? rawModel)?.scatterPoints?.map(p => ({ spend: p.spend, roas: p.roas })) || [];
-
-      result[ch] = {
+      const b = baselines.find(x => x.channel === ch);
+      const t = timingEffects.byChannel[ch];
+      const rec = recommendations[ch];
+      const curRow = currentPlan.channels[ch];
+      const recRow = optimizedPlan.channels[ch];
+      const historicalROAS = b?.historicalROAS ?? 0;
+      const rawROAS = historicalROAS;
+      const tunedROAS = historicalROAS;
+      const confidenceScore = b ? 1 / (1 + Math.max(0, b.monthlyROASCV)) : 0.5;
+      const volatilityScore = b ? Math.max(0, b.monthlyROASCV) : 0.5;
+      const stabilityScore = Math.max(0, 1 - Math.min(1, volatilityScore));
+      out[ch] = {
         channel: ch,
-        rawROAS, tunedROAS,
-        historicalROAS: tunedROAS, // pages use historicalROAS — alias to tuned for consistency
-        portfolioROAS: portfolioMedianROAS,
-        efficiencyConfidence: profile?.efficiencyConfidence ?? 0.5,
-        stabilityScore:       profile?.stabilityScore       ?? 0.5,
-        volatilityScore:      profile?.volatilityScore      ?? 0.5,
-        isHighVolatility:     profile?.isHighVolatility     ?? false,
-        saturationCurve,
-        capSpend:   cap?.capSpend  ?? Infinity,
-        capReason:  cap?.capReason ?? '',
-        isSaturated: diagnosis[ch]?.isSaturated || false,
-        marginalROASAtCurrent:     margAtCur,
-        marginalROASAtRecommended: margAtRec,
-        // Tuned timing
-        peakMonth:           sea?.peakMonth       ?? 0,
-        peakBoost:           sea?.peakBoost       ?? 0,
-        seasonalityIndex:    sea?.tunedMonthlyIndex ?? Array(12).fill(1),
-        rawSeasonalityIndex: sea?.rawMonthlyIndex   ?? Array(12).fill(1),
-        seasonalityStrength: sea?.seasonalityStrength ?? 'weak',
-        bestDay:      dow?.bestDay     ?? 0,
-        worstDay:     dow?.worstDay    ?? 0,
-        dowIndex:     dow?.tunedDowIndex ?? Array(7).fill(1),
-        rawDowIndex:  dow?.rawDowIndex   ?? Array(7).fill(1),
-        weekendBias:      dow?.weekendBias      ?? 'neutral',
-        dowEffectStrength: dow?.effectStrength   ?? 'weak',
-        reasonCodes,
+        rawROAS,
+        tunedROAS,
+        historicalROAS: tunedROAS,
+        portfolioROAS: portfolioROASHistorical,
+        efficiencyConfidence: confidenceScore,
+        stabilityScore,
+        volatilityScore,
+        isHighVolatility: volatilityScore > 0.5,
+        saturationCurve: (b?.monthlyPoints || []).map(p => ({ spend: p.spend, roas: p.roas })),
+        capSpend: curRow?.capSpend ?? Infinity,
+        capReason: Number.isFinite(curRow?.capSpend || Infinity)
+          ? `${ch} enters saturation near ${Math.round((curRow?.capSpend || 0) / 100000)}L monthly spend.`
+          : `${ch} does not show a clear saturation cap in observed history.`,
+        isSaturated: diagnosis[ch]?.isSaturated ?? false,
+        marginalROASAtCurrent: curRow?.marginalROAS || 0,
+        marginalROASAtRecommended: recRow?.marginalROAS || 0,
+        peakMonth: t?.peakMonth ?? 0,
+        peakBoost: t?.peakBoost ?? 0,
+        seasonalityIndex: t?.monthlyIndex ?? Array(12).fill(1),
+        rawSeasonalityIndex: t?.monthlyIndex ?? Array(12).fill(1),
+        seasonalityStrength: t?.monthlyStrength ?? 'weak',
+        bestDay: t?.bestDay ?? 0,
+        worstDay: t?.worstDay ?? 0,
+        dowIndex: t?.dowIndex ?? Array(7).fill(1),
+        rawDowIndex: t?.dowIndex ?? Array(7).fill(1),
+        weekendBias: t?.weekendBias ?? 'neutral',
+        dowEffectStrength: t?.dowStrength ?? 'weak',
+        reasonCodes: rec?.reasonCodes || [],
       };
     }
-    return result;
-  }, [tunedModels, rawModels, seasonalProfiles, dowProfiles, caps, currentPlan, optimizedPlan,
-      summaries, historicalFractions, stabilizedOptimalShares, portfolioMedianROAS,
-      tunedPeriodWeights, diagnosis, channelProfiles]);
+    return out;
+  }, [baselines, timingEffects, recommendations, currentPlan, optimizedPlan, portfolioROASHistorical, diagnosis]);
 
-  // The optimizer is ALWAYS trained on the full unfiltered dataset, so its
-  // displayed range must reflect that — not whatever the global date filter is
-  // currently narrowed to. We read from `boundaries` (derived from the raw
-  // record stream) rather than from the page-level `data` prop.
+  const totalHistoricalMonths = useMemo(() => {
+    const active = baselines.flatMap(b => b.monthlyPoints.map(p => p.monthKey));
+    const unique = new Set(active);
+    return unique.size || 1;
+  }, [baselines]);
+
   const dataRange = useMemo(() => {
     if (!boundaries) return null;
     return { min: boundaries.earliestDate, max: boundaries.latestDate };
   }, [boundaries]);
 
-  // ── Return the full model output ────────────────────────────────────────────
+  const scenarioBudgets = useMemo(() => [3500000, 4250000, 5000000, 6000000, 7500000], []);
+  const scenarioOutputs = useMemo(
+    () => computeBudgetScenarios(baselines, scenarioBudgets, planningMode, currentAllocationPct, { timingEffects, planningMonth }),
+    [baselines, scenarioBudgets, planningMode, currentAllocationPct, timingEffects, planningMonth],
+  );
+
+  const portfolioAvgConfidence = useMemo(
+    () => mean(baselines.map(b => 1 / (1 + Math.max(0, b.monthlyROASCV)))) || 0.5,
+    [baselines],
+  );
+
   return {
-    isLoading, dataSource: dataSource || 'mock', dataUpdatedAt, dataRange, totalHistoricalMonths,
-    selectedRange, durationMonths, monthlyBudget: safeBudget, totalPeriodBudget, modeMultiplier,
-    historicalFractions, portfolioROAS: portfolioMedianROAS,
-    currentPlan, optimizedPlan,
-    diagnosis, flaggedChannels, overWeightedChannels, underWeightedChannels,
-    uplift, recommendations,
+    isLoading,
+    dataSource: dataSource || 'mock',
+    dataUpdatedAt,
+    dataRange,
+    totalHistoricalMonths,
+    selectedRange,
+    durationMonths,
+    monthlyBudget: safeBudget,
+    totalPeriodBudget,
+    modeMultiplier: 1,
+    historicalFractions,
+    portfolioROAS: portfolioROASHistorical,
+    currentPlan,
+    optimizedPlan,
+    diagnosis,
+    flaggedChannels,
+    overWeightedChannels,
+    underWeightedChannels,
+    uplift,
+    recommendations,
     explanation,
     debug: {
-      calibration: calibration ?? {
+      calibration: {
         channelProfiles: {},
         seasonalityProfiles: {},
         dowProfiles: {},
-        tunedModels: rawModels,
-        portfolioMedianROAS: portfolioROAS,
-        portfolioAvgConfidence: 0.5,
-      },
+        tunedModels: [],
+        portfolioMedianROAS: portfolioROASHistorical,
+        portfolioAvgConfidence,
+      } as any,
       tunedPeriodWeights,
       rawPeriodWeights,
       portfolioAvgConfidence,
-      baselines,
+      baselines: baselines.map(b => ({
+        channel: b.channel,
+        totalSpend: b.totalSpend,
+        totalRevenue: b.totalRevenue,
+        historicalROAS: b.historicalROAS,
+        historicalAllocationPct: b.historicalAllocationPct / 100,
+        avgMonthlySpend: b.avgMonthlySpend,
+        avgMonthlyRevenue: b.avgMonthlyRevenue,
+        spendVolatility: b.monthlyROASCV,
+        revenueVolatility: b.monthlyROASCV,
+        activeMonthCount: b.activeMonths,
+      })) as any,
       auditReport: auditReport ?? null,
-    },
+      scenarios: scenarioOutputs,
+    } as any,
   };
+}
+
+function mean(values: number[]): number {
+  if (values.length === 0) return 0;
+  return values.reduce((s, v) => s + v, 0) / values.length;
 }
