@@ -21,8 +21,7 @@ import { ChannelName } from '@/components/ChannelName';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import {
-  Sliders, ArrowRight, CheckCircle, AlertTriangle, Minus,
-  ChevronDown, ChevronRight,
+  ArrowRight, CheckCircle, AlertTriangle, Minus,
 } from 'lucide-react';
 import type { PlanningPeriod, PlanningMode } from '@/contexts/OptimizerContext';
 

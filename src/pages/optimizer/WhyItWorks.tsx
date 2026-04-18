@@ -267,9 +267,9 @@ export default function WhyItWorks() {
                 </td>
                 <td style={{ padding: '12px 24px', textAlign: 'center', fontFamily: 'Outfit', fontSize: 13, fontWeight: 700, color: '#34D399' }}>{MONTH_NAMES[row.peakMonth]}</td>
                 <td style={{ padding: '12px 24px', fontFamily: 'Plus Jakarta Sans', fontSize: 12, color: 'var(--text-secondary)', fontStyle: 'italic' }}>
-                  {row.peakIndex > 1.15
-                    ? `${MONTH_NAMES[row.peakMonth]} outperforms average by ~${Math.round((row.peakIndex - 1) * 100)}% — consider extra weight here.`
-                    : `Seasonality index is near average — timing matters less for this channel.`}
+                  {row.peakBoost > 0.15
+                    ? `${MONTH_NAMES[row.peakMonth]} outperforms average by ~${Math.round(row.peakBoost * 100)}% — consider extra weight here.`
+                    : `Seasonality is near average — timing matters less for this channel.`}
                 </td>
               </tr>
             ))}
