@@ -4,13 +4,24 @@ import { useLocation } from 'react-router-dom';
 import { useAppContext, DateFilterType } from '@/contexts/AppContext';
 
 const PAGE_NAMES: Record<string, string> = {
-  '/dashboard': 'Overview',
-  '/channels': 'Channel Performance',
-  '/optimizer': 'Mix Optimizer',
-  '/trends': 'Trend Analysis',
-  '/scenarios': 'Scenario Planner',
-  '/funnel': 'Traffic Quality Pipeline',
-  '/financials': 'Financial Insights',
+  // Measurement
+  '/dashboard':  'Overview',
+  '/channels':   'Channel Performance',
+  '/funnel':     'Traffic Quality Pipeline',
+  // Strategy
+  '/scenarios':  'Scenario Planner',
+  '/budget':     'Budget Tracker',
+  // Mix Optimiser
+  '/optimizer/current-mix': 'Current Mix',
+  '/optimizer/diagnosis':   'Diagnosis',
+  '/optimizer/recommended': 'Recommended Mix',
+  '/optimizer/why':         'Why It Works',
+  '/optimizer/scenarios':   'Budget Scenarios',
+  // Intelligence
+  '/trends':       'Trend Analysis',
+  '/financials':   'Financial Insights',
+  '/daily-digest': 'Daily Digest',
+  '/best-days':    'Best Days',
 };
 
 export function Layout({ children }: { children: React.ReactNode }) {
