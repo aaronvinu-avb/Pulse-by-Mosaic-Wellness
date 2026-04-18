@@ -19,12 +19,11 @@ const FunnelAnalysis     = lazy(() => import("@/pages/FunnelAnalysis"));
 const ScenarioPlanner    = lazy(() => import("@/pages/ScenarioPlanner"));
 const BudgetTracker      = lazy(() => import("@/pages/BudgetTracker"));
 
-// ── Mix Optimiser (5 child pages) ──────────────────────────────────────────
+// ── Mix Optimiser (4 child pages) ──────────────────────────────────────────
 const CurrentMix         = lazy(() => import("@/pages/optimizer/CurrentMix"));
 const Diagnosis          = lazy(() => import("@/pages/optimizer/Diagnosis"));
 const RecommendedMix     = lazy(() => import("@/pages/optimizer/RecommendedMix"));
 const WhyItWorks         = lazy(() => import("@/pages/optimizer/WhyItWorks"));
-const OptimizerScenarios = lazy(() => import("@/pages/optimizer/BudgetScenarios"));
 
 // ── Intelligence ───────────────────────────────────────────────────────────
 const FinancialInsights  = lazy(() => import("@/pages/FinancialInsights"));
@@ -71,7 +70,6 @@ const App = () => (
                   <Route path="/optimizer/diagnosis"   element={<Layout><Diagnosis /></Layout>} />
                   <Route path="/optimizer/recommended" element={<Layout><RecommendedMix /></Layout>} />
                   <Route path="/optimizer/why"         element={<Layout><WhyItWorks /></Layout>} />
-                  <Route path="/optimizer/scenarios"   element={<Layout><OptimizerScenarios /></Layout>} />
 
                   {/* Intelligence */}
                   <Route path="/financials"   element={<Layout><FinancialInsights /></Layout>} />

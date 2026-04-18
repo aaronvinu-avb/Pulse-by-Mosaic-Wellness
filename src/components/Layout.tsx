@@ -16,7 +16,6 @@ const PAGE_NAMES: Record<string, string> = {
   '/optimizer/diagnosis':   'Diagnosis',
   '/optimizer/recommended': 'Recommended Mix',
   '/optimizer/why':         'Why It Works',
-  '/optimizer/scenarios':   'Budget Scenarios',
   // Intelligence
   '/trends':       'Trend Analysis',
   '/financials':   'Financial Insights',

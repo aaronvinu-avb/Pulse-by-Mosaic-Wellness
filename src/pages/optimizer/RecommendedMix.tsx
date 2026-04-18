@@ -5,7 +5,7 @@
  *   currentPlan, optimizedPlan, uplift, recommendations, explanation
  *   durationMonths, monthlyBudget, totalPeriodBudget
  *
- * Must NOT read: diagnosis, scenarios, raw calibration tables
+ * Must NOT read: diagnosis, raw calibration tables
  */
 
 import { useState, useMemo } from 'react';

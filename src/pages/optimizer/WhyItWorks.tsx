@@ -6,7 +6,7 @@
  *   totalHistoricalMonths, dataRange, dataSource,
  *   debug.portfolioAvgConfidence
  *
- * Must NOT use: scenarios, raw calibration audit tables
+ * Must NOT use: raw calibration audit tables
  */
 
 import { useState } from 'react';
@@ -698,30 +698,30 @@ export default function WhyItWorks() {
       }}>
         <div>
           <p style={{ fontFamily: 'Outfit', fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-            How does the model respond to budget changes?
+            Ready to apply the recommended mix?
           </p>
           <p style={{ ...T.body, fontSize: 12, marginTop: 5 }}>
-            Budget Scenarios runs the same engine at different spend levels — showing how revenue and ROAS respond as budget increases or decreases.
+            Head back to Recommended Mix to review the per-channel allocation and apply it in one click.
           </p>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexShrink: 0 }}>
-          <Link to="/optimizer/recommended" style={{
+          <Link to="/optimizer/current-mix" style={{
             display: 'inline-flex', alignItems: 'center', gap: 6,
             padding: '9px 15px', borderRadius: 9,
             border: '1px solid var(--border-strong)',
             backgroundColor: 'var(--bg-root)', color: 'var(--text-secondary)',
             fontFamily: 'Outfit', fontSize: 12, fontWeight: 600, textDecoration: 'none',
           }}>
-            <ArrowLeft size={13} /> Recommended Mix
+            <ArrowLeft size={13} /> Back to Current Mix
           </Link>
-          <Link to="/optimizer/scenarios" style={{
+          <Link to="/optimizer/recommended" style={{
             display: 'inline-flex', alignItems: 'center', gap: 8,
             padding: '10px 18px', borderRadius: 9,
             background: 'linear-gradient(135deg, #E8803A, #FBBF24)',
             color: '#000', fontFamily: 'Outfit', fontSize: 13, fontWeight: 700,
             textDecoration: 'none', whiteSpace: 'nowrap' as const,
           }}>
-            View Budget Scenarios <ArrowRight size={14} />
+            Recommended Mix <ArrowRight size={14} />
           </Link>
         </div>
       </div>

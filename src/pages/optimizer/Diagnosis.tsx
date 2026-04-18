@@ -5,7 +5,7 @@
  *   diagnosis, flaggedChannels, overWeightedChannels, underWeightedChannels,
  *   currentPlan, portfolioROAS, explanation, historicalFractions
  *
- * Must NOT read: optimizedPlan, uplift, recommendations, scenarios
+ * Must NOT read: optimizedPlan, uplift, recommendations
  */
 
 import { useState } from 'react';

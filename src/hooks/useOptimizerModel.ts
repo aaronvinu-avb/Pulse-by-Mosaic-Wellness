@@ -55,7 +55,6 @@ import {
   classifyUpliftConfidence,
 } from '@/lib/optimizerCalibration';
 import { CHANNELS } from '@/lib/mockData';
-import { formatINRCompact } from '@/lib/formatCurrency';
 import type {
   OptimizerModelOutput,
   MixPlanSummary,
@@ -64,8 +63,6 @@ import type {
   ChannelRecommendation,
   ChannelExplanation,
   UpliftSummary,
-  ScenarioOutput,
-  MarginalNote,
 } from '@/lib/optimizerTypes';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -77,13 +74,6 @@ const TIMELINE_MONTHS: MonthPoint[] = (() => {
     return { key: `${y}-${String(mo + 1).padStart(2, '0')}`, year: y, month: mo };
   });
 })();
-
-const SCENARIO_TIERS = [
-  { key: 'conservative', label: 'Conservative', monthlyMultiplier: 0.60 },
-  { key: 'current',      label: 'Current',       monthlyMultiplier: 1.00 },
-  { key: 'growth',       label: 'Growth',         monthlyMultiplier: 1.30 },
-  { key: 'aggressive',   label: 'Aggressive',     monthlyMultiplier: 1.50 },
-];
 
 // ── Reason code builder ───────────────────────────────────────────────────────
 // Now uses tunedROAS (winsorized, spend-weighted) rather than raw historical ROAS.
@@ -654,64 +644,6 @@ export function useOptimizerModel(): OptimizerModelOutput {
       summaries, historicalFractions, stabilizedOptimalShares, portfolioMedianROAS,
       tunedPeriodWeights, diagnosis, channelProfiles]);
 
-  // ── Step 12: Scenarios ────────────────────────────────────────────────────
-  // Each tier uses tuned models for the forecast + tuned optimization.
-  const scenarios = useMemo((): ScenarioOutput[] => {
-    if (!sourceData) return [];
-    const baseRevenue = currentPlan.totalPeriodRevenue;
-
-    return SCENARIO_TIERS.map(tier => {
-      const tierBudget = Math.round(safeBudget * tier.monthlyMultiplier / 1000) * 1000;
-
-      // Compute tier-specific optimal allocation with tuned models at this budget level
-      const tierOptimal = Object.keys(tunedPeriodWeights).length > 0 && tunedModels.length > 0
-        ? computeTunedOptimalShares(tunedModels, tierBudget, tunedPeriodWeights, channelProfiles)
-        : getOptimalSharesForPeriod({ data: sourceData, selectedMonths: selectedRange, monthlyBudget: tierBudget });
-
-      const tierPlan = buildMonthlyPlanFromData({
-        data: sourceData, selectedMonths: selectedRange,
-        monthlyBudget: tierBudget, modeMultiplier,
-        allocationShares: tierOptimal, saturationModels: tunedModels,
-      });
-
-      const periodBudget  = tierBudget * durationMonths;
-      const periodRevenue = tierPlan.totalRevenue;
-      const blendedROAS   = periodBudget > 0 ? periodRevenue / periodBudget : 0;
-
-      return {
-        key: tier.key, label: tier.label, monthlyMultiplier: tier.monthlyMultiplier,
-        monthlyBudget: tierBudget, periodBudget, periodRevenue, blendedROAS,
-        deltaRevenue: periodRevenue - baseRevenue,
-        deltaROAS:    blendedROAS   - currentPlan.blendedROAS,
-      };
-    });
-  }, [sourceData, selectedRange, safeBudget, modeMultiplier, tunedModels,
-      tunedPeriodWeights, channelProfiles, durationMonths, currentPlan]);
-
-  const marginalNotes = useMemo((): MarginalNote[] => {
-    const notes: MarginalNote[] = [];
-    for (let i = 0; i < scenarios.length - 1; i++) {
-      const a = scenarios[i], b = scenarios[i + 1];
-      const extra = b.periodBudget - a.periodBudget;
-      const gain  = b.periodRevenue - a.periodRevenue;
-      if (extra > 0) notes.push({ from: a.label, to: b.label, marginalROAS: gain / extra, extraBudget: extra, extraRevenue: gain });
-    }
-    return notes;
-  }, [scenarios]);
-
-  const scenarioInterpretation = useMemo(() => {
-    const base = scenarios.find(s => s.key === 'current');
-    const agg  = scenarios.find(s => s.key === 'aggressive');
-    if (!base || !agg) return '';
-    const extra = agg.periodBudget - base.periodBudget;
-    const gain  = agg.periodRevenue - base.periodRevenue;
-    const marg  = extra > 0 ? gain / extra : 0;
-    return `Moving from ${formatINRCompact(base.monthlyBudget)}/mo to ${formatINRCompact(agg.monthlyBudget)}/mo adds ${formatINRCompact(gain)} in revenue at a marginal ROAS of ${marg.toFixed(2)}x — ` +
-      (marg < 2
-        ? 'diminishing returns are steep above the current budget level.'
-        : 'there is still meaningful return available at higher spend.');
-  }, [scenarios]);
-
   const dataRange = useMemo(() => {
     if (!data?.length) return null;
     let min = data[0].date, max = data[0].date;
@@ -728,7 +660,6 @@ export function useOptimizerModel(): OptimizerModelOutput {
     diagnosis, flaggedChannels, overWeightedChannels, underWeightedChannels,
     uplift, recommendations,
     explanation,
-    scenarios, marginalNotes, scenarioInterpretation,
     debug: {
       calibration: calibration ?? {
         channelProfiles: {},

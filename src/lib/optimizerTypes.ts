@@ -166,29 +166,6 @@ export interface ChannelExplanation {
   reasonCodes: string[];
 }
 
-// ── Budget scenario ───────────────────────────────────────────────────────────
-
-export interface ScenarioOutput {
-  key: string;
-  label: string;
-  monthlyMultiplier: number;
-  monthlyBudget: number;
-  periodBudget: number;
-  periodRevenue: number;
-  blendedROAS: number;
-  /** vs the 'current' budget tier (not vs current manual plan) */
-  deltaRevenue: number;
-  deltaROAS: number;
-}
-
-export interface MarginalNote {
-  from: string;
-  to: string;
-  marginalROAS: number;
-  extraBudget: number;
-  extraRevenue: number;
-}
-
 // Re-export calibration types so pages can import from a single place
 export type { CalibrationOutput, UpliftConfidence } from './optimizerCalibration';
 
@@ -231,11 +208,6 @@ export interface OptimizerModelOutput {
 
   // ── Layer H: Explanation (for Why It Works) ────────────────────────────────
   explanation: Record<string, ChannelExplanation>;
-
-  // ── Layer I: Scenarios (for Budget Scenarios) ─────────────────────────────
-  scenarios: ScenarioOutput[];
-  marginalNotes: MarginalNote[];
-  scenarioInterpretation: string;
 
   // ── Debug / Explainability layer (for audit + future UI) ──────────────────
   debug: {

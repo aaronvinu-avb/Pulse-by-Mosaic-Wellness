@@ -12,7 +12,6 @@ import {
   Stethoscope,
   Sparkles,
   HelpCircle,
-  LineChart,
 } from "lucide-react";
 import { LumaLogo } from '@/components/LumaLogo';
 import { NavLink } from '@/components/NavLink';
@@ -62,11 +61,10 @@ const navGroups: NavGroup[] = [
   {
     label: 'Mix Optimiser',
     items: [
-      { title: 'Current Mix',      url: '/optimizer/current-mix', icon: Sliders     },
-      { title: 'Diagnosis',        url: '/optimizer/diagnosis',   icon: Stethoscope },
-      { title: 'Recommended Mix',  url: '/optimizer/recommended', icon: Sparkles    },
-      { title: 'Why It Works',     url: '/optimizer/why',         icon: HelpCircle  },
-      { title: 'Budget Scenarios', url: '/optimizer/scenarios',   icon: LineChart   },
+      { title: 'Current Mix',     url: '/optimizer/current-mix', icon: Sliders     },
+      { title: 'Diagnosis',       url: '/optimizer/diagnosis',   icon: Stethoscope },
+      { title: 'Recommended Mix', url: '/optimizer/recommended', icon: Sparkles    },
+      { title: 'Why It Works',    url: '/optimizer/why',         icon: HelpCircle  },
     ],
   },
   {
