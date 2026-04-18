@@ -2,6 +2,7 @@ import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { useLocation } from 'react-router-dom';
 import { useAppContext, DateFilterType } from '@/contexts/AppContext';
+import { useMarketingData } from '@/hooks/useMarketingData';
 
 const PAGE_NAMES: Record<string, string> = {
   // Measurement
@@ -27,6 +28,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const pageName = PAGE_NAMES[location.pathname] || 'Dashboard';
   const { dateFilter, setDateFilter } = useAppContext();
+  const { boundaries } = useMarketingData();
+
+  const allLabel = boundaries ? boundaries.fullRangeLabel : 'All time';
+  const yearOptions = boundaries?.availableYears ?? [];
 
   return (
     <SidebarProvider>
@@ -60,12 +65,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   cursor: 'pointer'
                 }}
               >
-                <option value="all">Jan 2023 - Dec 2025</option>
+                <option value="all">{allLabel}</option>
                 <option value="last30">Last 30 Days</option>
                 <option value="last90">Last 90 Days</option>
-                <option value="2025">2025 Only</option>
-                <option value="2024">2024 Only</option>
-                <option value="2023">2023 Only</option>
+                {yearOptions.map((y) => (
+                  <option key={y} value={String(y)}>{y} Only</option>
+                ))}
               </select>
 
               <div

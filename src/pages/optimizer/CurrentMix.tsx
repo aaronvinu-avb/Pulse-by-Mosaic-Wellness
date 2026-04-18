@@ -19,7 +19,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { DashboardSkeleton } from '@/components/DashboardSkeleton';
 import { useOptimizerModel } from '@/hooks/useOptimizerModel';
-import { useOptimizer } from '@/contexts/OptimizerContext';
+import { useOptimizer, DEFAULT_MONTHLY_BUDGET } from '@/contexts/OptimizerContext';
 import { formatINRCompact } from '@/lib/formatCurrency';
 import { CHANNELS, CHANNEL_COLORS } from '@/lib/mockData';
 import { ChannelName } from '@/components/ChannelName';
@@ -106,7 +106,26 @@ export default function CurrentMix() {
   }, [pendingAllocs]);
 
   // ── Derived values ───────────────────────────────────────────────────────────
-  const safeBudget = Number.isFinite(budget) && budget > 0 ? budget : 5_000_000;
+  const safeBudget = Number.isFinite(budget) && budget > 0 ? budget : DEFAULT_MONTHLY_BUDGET;
+
+  // Period label used in the budget helper text ("… total (annual)").
+  const periodLabel = (
+    planningPeriod === '1m' ? 'monthly'   :
+    planningPeriod === '1q' ? 'quarterly' :
+    planningPeriod === '6m' ? '6 months'  :
+    planningPeriod === '1y' ? 'annual'    : 'selected period'
+  );
+
+  // Budget input — we render a text input with Indian number grouping so the
+  // user sees "50,00,000" (not the native-number input's "5000000"). The
+  // underlying state stays numeric; we parse on every keystroke and format
+  // for display. Empty input is permitted during editing so the field can be
+  // cleared without snapping back.
+  const [budgetInputFocused, setBudgetInputFocused] = useState(false);
+  const [budgetInputDraft, setBudgetInputDraft] = useState<string>('');
+  const budgetDisplayValue = budgetInputFocused
+    ? budgetInputDraft
+    : safeBudget.toLocaleString('en-IN');
 
   const pendingTotal    = Object.values(pendingAllocs).reduce((s, v) => s + v, 0);
   const pendingTotalPct = Math.round(pendingTotal * 100);
@@ -186,9 +205,26 @@ export default function CurrentMix() {
           }}>
             <span style={{ fontFamily: 'Outfit', fontSize: 13, fontWeight: 700, color: 'var(--text-muted)' }}>₹</span>
             <input
-              type="number" value={safeBudget} min={0} step={1000}
-              onChange={e => { const v = Number(e.target.value); setBudget(Number.isFinite(v) ? Math.max(0, v) : 0); }}
-              onBlur={() => setBudget(b => Math.round(Math.max(0, b) / 1000) * 1000)}
+              type="text"
+              inputMode="numeric"
+              value={budgetDisplayValue}
+              onFocus={() => {
+                setBudgetInputFocused(true);
+                setBudgetInputDraft(String(safeBudget));
+              }}
+              onChange={(e) => {
+                const digits = e.target.value.replace(/[^0-9]/g, '');
+                setBudgetInputDraft(digits);
+                const n = digits === '' ? 0 : Number(digits);
+                if (Number.isFinite(n)) setBudget(n);
+              }}
+              onBlur={() => {
+                setBudgetInputFocused(false);
+                setBudget((b) => {
+                  const safe = Number.isFinite(b) && b > 0 ? b : DEFAULT_MONTHLY_BUDGET;
+                  return Math.round(safe / 1000) * 1000;
+                });
+              }}
               style={{
                 flex: 1, background: 'transparent', border: 'none', outline: 'none',
                 fontFamily: 'Outfit', fontWeight: 700, fontSize: 15,
@@ -197,7 +233,7 @@ export default function CurrentMix() {
             />
           </div>
           <p style={{ ...T.body, fontSize: 10, marginTop: 4, opacity: 0.7 }}>
-            {formatINRCompact(totalPeriodBudget)} / {durationMonths}mo total
+            {formatINRCompact(safeBudget)}/mo · {formatINRCompact(totalPeriodBudget)} total ({periodLabel})
           </p>
         </div>
 

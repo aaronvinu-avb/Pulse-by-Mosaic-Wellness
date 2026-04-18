@@ -27,7 +27,7 @@
 
 import { useMemo, useEffect } from 'react';
 import { useMarketingData } from '@/hooks/useMarketingData';
-import { useOptimizer } from '@/contexts/OptimizerContext';
+import { useOptimizer, DEFAULT_MONTHLY_BUDGET } from '@/contexts/OptimizerContext';
 import {
   getChannelSummaries,
   getChannelSaturationModels,
@@ -35,6 +35,7 @@ import {
   getDayOfWeekMetrics,
   getChannelCapsFromData,
   getPortfolioWeightedROAS,
+  getChannelBaselines,
   buildMonthRange,
   getPeriodTimeWeightSums,
   buildMonthlyPlanFromData,
@@ -46,6 +47,7 @@ import {
   type MonthPoint,
   type SaturationModel,
   type ChannelCapMetrics,
+  type ChannelBaseline,
 } from '@/lib/calculations';
 import {
   calibrate,
@@ -202,7 +204,7 @@ function buildPlanSummary(
 export function useOptimizerModel(): OptimizerModelOutput {
   const {
     data, aggregate, globalAggregate, isLoading,
-    dataSource, dataUpdatedAt,
+    dataSource, dataUpdatedAt, auditReport, boundaries,
   } = useMarketingData({ includeGlobalAggregate: true });
 
   const {
@@ -211,10 +213,16 @@ export function useOptimizerModel(): OptimizerModelOutput {
     customStartMonth, customEndMonth,
     allocations, setAllocations,
     paused,
-    hasSetInitialBudget, setHasSetInitialBudget,
   } = useOptimizer();
 
-  const sourceData = globalAggregate || aggregate || data;
+  // Single source of truth for every downstream computation.
+  // `globalAggregate` (full unfiltered history) is the canonical input when
+  // available — this guarantees calibration, seasonality, dow, and baselines
+  // all see the same underlying totals. `aggregate` is a per-filter fallback.
+  // Raw `data` is intentionally NOT accepted here because every consumer
+  // needs an AggregatedState (not a flat record array) to produce correct
+  // sum/sum ROAS, monthly volatility, and per-channel coverage stats.
+  const sourceData = globalAggregate ?? aggregate;
 
   // ── Step 2: Raw historical model inputs ──────────────────────────────────────
   const summaries = useMemo(
@@ -252,30 +260,44 @@ export function useOptimizerModel(): OptimizerModelOutput {
     [sourceData],
   );
 
-  const historicalFractions = useMemo(() => {
-    const total = summaries.reduce((s, c) => s + c.totalSpend, 0);
-    const f: Record<string, number> = {};
-    CHANNELS.forEach(ch => {
-      const s = summaries.find(x => x.channel === ch);
-      f[ch] = total > 0 ? (s?.totalSpend || 0) / total : 1 / CHANNELS.length;
-    });
-    return f;
-  }, [summaries]);
+  // Shared channel baselines — the single source of truth for historical metrics
+  // (sum/sum ROAS, allocation share, monthly averages, volatility). All four
+  // optimizer pages should prefer `baselines` over re-deriving their own values.
+  const baselines = useMemo<ChannelBaseline[]>(
+    () => sourceData ? getChannelBaselines(sourceData) : [],
+    [sourceData],
+  );
 
+  const historicalFractions = useMemo(() => {
+    const f: Record<string, number> = {};
+    if (baselines.length > 0) {
+      CHANNELS.forEach(ch => {
+        const b = baselines.find(x => x.channel === ch);
+        f[ch] = b ? b.historicalAllocationPct : 1 / CHANNELS.length;
+      });
+      return f;
+    }
+    // Fallback — baselines not yet computed (no data).
+    CHANNELS.forEach(ch => { f[ch] = 1 / CHANNELS.length; });
+    return f;
+  }, [baselines]);
+
+  // `avgMonthlySpend` is retained for diagnostic/scenario callers that want to
+  // compare a user-chosen budget against the historical run-rate. It is NOT
+  // used to seed the budget input anymore — the optimizer starts at the
+  // product-level DEFAULT_MONTHLY_BUDGET (₹50L) and only ever changes when
+  // the user explicitly types a new value.
   const avgMonthlySpend = useMemo(
     () => summaries.length === 0
-      ? 5_000_000
+      ? DEFAULT_MONTHLY_BUDGET
       : Math.round(summaries.reduce((s, c) => s + c.totalSpend, 0) / Math.max(1, totalHistoricalMonths)),
     [summaries, totalHistoricalMonths],
   );
 
-  // ── Step 1 side-effects: seed budget + allocations from history ────────────
-  useEffect(() => {
-    if (hasSetInitialBudget || summaries.length === 0) return;
-    setBudget(Math.round(avgMonthlySpend / 1000) * 1000);
-    setHasSetInitialBudget(true);
-  }, [avgMonthlySpend, hasSetInitialBudget, summaries.length, setBudget, setHasSetInitialBudget]);
-
+  // ── Step 1 side-effects: seed allocations from history ─────────────────────
+  // NOTE: We intentionally DO NOT seed `budget` from historical spend. Doing
+  // so previously produced a ~₹6.32Cr default (3-year × 10-channel run-rate)
+  // that confused users and didn't match the product's intended ₹50L baseline.
   useEffect(() => {
     if (Object.keys(allocations).length > 0) return;
     setAllocations({ ...historicalFractions });
@@ -303,7 +325,7 @@ export function useOptimizerModel(): OptimizerModelOutput {
   // ── Planning range ────────────────────────────────────────────────────────
 
   const safeBudget = useMemo(
-    () => Number.isFinite(budget) && budget > 0 ? budget : 5_000_000,
+    () => Number.isFinite(budget) && budget > 0 ? budget : DEFAULT_MONTHLY_BUDGET,
     [budget],
   );
 
@@ -644,12 +666,14 @@ export function useOptimizerModel(): OptimizerModelOutput {
       summaries, historicalFractions, stabilizedOptimalShares, portfolioMedianROAS,
       tunedPeriodWeights, diagnosis, channelProfiles]);
 
+  // The optimizer is ALWAYS trained on the full unfiltered dataset, so its
+  // displayed range must reflect that — not whatever the global date filter is
+  // currently narrowed to. We read from `boundaries` (derived from the raw
+  // record stream) rather than from the page-level `data` prop.
   const dataRange = useMemo(() => {
-    if (!data?.length) return null;
-    let min = data[0].date, max = data[0].date;
-    for (const r of data) { if (r.date < min) min = r.date; if (r.date > max) max = r.date; }
-    return { min, max };
-  }, [data]);
+    if (!boundaries) return null;
+    return { min: boundaries.earliestDate, max: boundaries.latestDate };
+  }, [boundaries]);
 
   // ── Return the full model output ────────────────────────────────────────────
   return {
@@ -672,6 +696,8 @@ export function useOptimizerModel(): OptimizerModelOutput {
       tunedPeriodWeights,
       rawPeriodWeights,
       portfolioAvgConfidence,
+      baselines,
+      auditReport: auditReport ?? null,
     },
   };
 }

@@ -1,4 +1,5 @@
 import { MarketingRecord, CHANNELS } from './mockData';
+import { parseLocalDate } from './dataBoundaries';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Basic Summaries
@@ -150,6 +151,81 @@ export function getChannelSummaries(data: MarketingRecord[] | AggregatedState): 
   return getAggregatedState(data).summaries;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Channel baselines — the single source of truth consumed by every optimizer page.
+// All fields are derived from raw history using correct (sum/sum) ROAS, and
+// monthly volatility is expressed as coefficient of variation (std / mean) so
+// the value is comparable across channels of different scales.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ChannelBaseline {
+  channel: string;
+  totalSpend: number;
+  totalRevenue: number;
+  /** sum(revenue) / sum(spend) across the full selected history. */
+  historicalROAS: number;
+  /** share of portfolio spend — (channel totalSpend) / (portfolio totalSpend). */
+  historicalAllocationPct: number;
+  avgMonthlySpend: number;
+  avgMonthlyRevenue: number;
+  /** CV(std/mean) of monthly spend — unit-free, comparable across channels. */
+  spendVolatility: number;
+  /** CV(std/mean) of monthly revenue. */
+  revenueVolatility: number;
+  /** Count of months with >₹50 of spend — used by the optimizer as a confidence proxy. */
+  activeMonthCount: number;
+}
+
+function stdev(values: number[]): number {
+  if (values.length < 2) return 0;
+  const mean = values.reduce((s, v) => s + v, 0) / values.length;
+  const variance = values.reduce((s, v) => s + (v - mean) * (v - mean), 0) / values.length;
+  return Math.sqrt(variance);
+}
+
+export function getChannelBaselines(data: MarketingRecord[] | AggregatedState): ChannelBaseline[] {
+  const state = 'summaries' in data ? (data as AggregatedState) : getAggregatedState(data as MarketingRecord[]);
+  const { summaries, monthlyMap } = state;
+  const totalSpend = summaries.reduce((s, c) => s + c.totalSpend, 0);
+
+  // Collect per-channel monthly spend / revenue arrays (active months only for volatility).
+  const monthlySpendByChannel: Record<string, number[]> = {};
+  const monthlyRevenueByChannel: Record<string, number[]> = {};
+  CHANNELS.forEach((ch) => { monthlySpendByChannel[ch] = []; monthlyRevenueByChannel[ch] = []; });
+  for (const [, byCh] of Object.entries(monthlyMap)) {
+    for (const ch of CHANNELS) {
+      const c = byCh[ch];
+      if (c && c.spend > 0) {
+        monthlySpendByChannel[ch].push(c.spend);
+        monthlyRevenueByChannel[ch].push(c.revenue);
+      }
+    }
+  }
+
+  return CHANNELS.map((ch) => {
+    const summary = summaries.find((s) => s.channel === ch);
+    const spends = monthlySpendByChannel[ch];
+    const revenues = monthlyRevenueByChannel[ch];
+    const activeMonthCount = spends.filter((s) => s > 50).length;
+    const avgMonthlySpend = spends.length > 0 ? spends.reduce((a, b) => a + b, 0) / spends.length : 0;
+    const avgMonthlyRevenue = revenues.length > 0 ? revenues.reduce((a, b) => a + b, 0) / revenues.length : 0;
+    const spendVolatility = avgMonthlySpend > 0 ? stdev(spends) / avgMonthlySpend : 0;
+    const revenueVolatility = avgMonthlyRevenue > 0 ? stdev(revenues) / avgMonthlyRevenue : 0;
+    return {
+      channel: ch,
+      totalSpend: summary?.totalSpend ?? 0,
+      totalRevenue: summary?.totalRevenue ?? 0,
+      historicalROAS: summary?.roas ?? 0,
+      historicalAllocationPct: totalSpend > 0 ? ((summary?.totalSpend ?? 0) / totalSpend) : 0,
+      avgMonthlySpend,
+      avgMonthlyRevenue,
+      spendVolatility,
+      revenueVolatility,
+      activeMonthCount,
+    };
+  });
+}
+
 /** Portfolio-level ROAS: total revenue ÷ total spend (not naive average of channel ROAS). */
 export function getPortfolioWeightedROAS(summaries: ChannelSummary[]): number {
   const spend = summaries.reduce((s, x) => s + x.totalSpend, 0);
@@ -171,7 +247,7 @@ export function getWeeklyROAS(data: MarketingRecord[] | AggregatedState, channel
   const weekMap = new Map<string, { spend: number; revenue: number }>();
   for (const r of data as MarketingRecord[]) {
     if (r.channel !== channel) continue;
-    const d = new Date(r.date);
+    const d = parseLocalDate(r.date);
     const weekStart = new Date(d);
     weekStart.setDate(d.getDate() - d.getDay());
     const key = formatLocalDateKey(weekStart);
@@ -486,10 +562,12 @@ export function getSeasonalityMetrics(data: MarketingRecord[] | AggregatedState)
     }
 
     const monthlyROAS = monthBuckets.map(b => (b.spend > 0 ? b.revenue / b.spend : 0));
-    const activeMonths = monthBuckets.filter(b => b.spend > 0);
-    const avgROAS = activeMonths.length > 0
-      ? activeMonths.reduce((s, v) => s + (v.spend > 0 ? v.revenue / v.spend : 0), 0) / activeMonths.length
-      : 1;
+    // Correct portfolio-weighted baseline: sum(revenue)/sum(spend) across active months.
+    // Previously this used mean(monthly_roas_ratio) which over-weights low-spend months
+    // and skews seasonality indices (see audit PART 3).
+    const totalRevenueActive = monthBuckets.reduce((s, b) => s + (b.spend > 0 ? b.revenue : 0), 0);
+    const totalSpendActive   = monthBuckets.reduce((s, b) => s + (b.spend > 0 ? b.spend   : 0), 0);
+    const avgROAS = totalSpendActive > 0 ? totalRevenueActive / totalSpendActive : 1;
     const monthlyIndex = monthlyROAS.map(r => parseFloat((avgROAS > 0 ? r / avgROAS : 1).toFixed(3)));
 
     let peakMonth = 0, troughMonth = 0;
@@ -522,7 +600,12 @@ export function getDayOfWeekMetrics(data: MarketingRecord[] | AggregatedState): 
   return CHANNELS.map(channel => {
     const buckets = dowMap[channel] || Array.from({ length: 7 }, () => ({ spend: 0, revenue: 0 }));
     const dowROAS = buckets.map(b => (b.spend > 0 ? b.revenue / b.spend : 0));
-    const avg = dowROAS.reduce((s, v) => s + v, 0) / 7 || 1;
+    // Correct portfolio-weighted baseline across the week: sum(revenue)/sum(spend).
+    // Previously this was mean(dowROAS)/7 — mean of 7 day-level ratios, which over-weights
+    // low-spend days (e.g. Sundays on a channel that barely runs on Sundays) and biases the DOW index.
+    const totalRev   = buckets.reduce((s, b) => s + b.revenue, 0);
+    const totalSpend = buckets.reduce((s, b) => s + b.spend,   0);
+    const avg = totalSpend > 0 ? totalRev / totalSpend : 1;
     const dowIndex = dowROAS.map(r => parseFloat((avg > 0 ? r / avg : 1).toFixed(3)));
 
     let bestDay = 0, worstDay = 0;
@@ -790,18 +873,28 @@ export function getChannelCapsFromData(data: MarketingRecord[] | AggregatedState
         capReason: `${channel}: no historical spend data, so no cap applied.`,
       };
     }
-    const sorted = [...points].sort((a, b) => a.spend - b.spend);
-    const n = sorted.length;
+    // Retain both raw (per-month) spend and revenue so bucket ROAS is sum/sum, not mean-of-ratios.
+    const sortedRaw = [...points]
+      .map(p => ({ spend: p.spend, revenue: p.spend * p.roas, roas: p.roas }))
+      .sort((a, b) => a.spend - b.spend);
+    const n = sortedRaw.length;
     const lowEnd = Math.max(1, Math.floor(n / 3));
     const midEnd = Math.max(lowEnd + 1, Math.floor((2 * n) / 3));
-    const low = sorted.slice(0, lowEnd);
-    const medium = sorted.slice(lowEnd, midEnd);
-    const high = sorted.slice(midEnd);
-    const avg = (arr: { spend: number; roas: number }[], key: 'spend' | 'roas') =>
-      arr.length > 0 ? arr.reduce((s, v) => s + v[key], 0) / arr.length : 0;
-    const blendedROAS = avg(sorted, 'roas');
-    const bucketROAS = { low: avg(low, 'roas'), medium: avg(medium, 'roas'), high: avg(high, 'roas') };
-    const bucketSpend = { low: avg(low, 'spend'), medium: avg(medium, 'spend'), high: avg(high, 'spend') };
+    const low    = sortedRaw.slice(0, lowEnd);
+    const medium = sortedRaw.slice(lowEnd, midEnd);
+    const high   = sortedRaw.slice(midEnd);
+    // Bucket ROAS = Σ revenue ÷ Σ spend across the monthly points in the bucket.
+    // (Previously: mean of per-month ROAS ratios — over-weighted low-spend months.)
+    const roasSumSum = (arr: { spend: number; revenue: number }[]) => {
+      const s = arr.reduce((a, v) => a + v.spend, 0);
+      const r = arr.reduce((a, v) => a + v.revenue, 0);
+      return s > 0 ? r / s : 0;
+    };
+    const avgSpend = (arr: { spend: number }[]) =>
+      arr.length > 0 ? arr.reduce((s, v) => s + v.spend, 0) / arr.length : 0;
+    const blendedROAS = roasSumSum(sortedRaw);
+    const bucketROAS  = { low: roasSumSum(low), medium: roasSumSum(medium), high: roasSumSum(high) };
+    const bucketSpend = { low: avgSpend(low),    medium: avgSpend(medium),    high: avgSpend(high) };
     let capSpend = Infinity;
     if (bucketROAS.medium > 0 && bucketROAS.medium < blendedROAS) capSpend = bucketSpend.medium;
     else if (bucketROAS.high > 0 && bucketROAS.high < blendedROAS) capSpend = bucketSpend.high;

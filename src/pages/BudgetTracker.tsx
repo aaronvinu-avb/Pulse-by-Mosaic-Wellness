@@ -4,6 +4,7 @@ import { DashboardSkeleton } from '@/components/DashboardSkeleton';
 import { ChannelName } from '@/components/ChannelName';
 import { CHANNELS } from '@/lib/mockData';
 import { formatINRCompact } from '@/lib/formatCurrency';
+import { parseLocalDate } from '@/lib/dataBoundaries';
 import { useAppContext } from '@/contexts/AppContext';
 import { Edit2, Check, AlertCircle, TrendingUp, TrendingDown, Lightbulb } from 'lucide-react';
 
@@ -19,7 +20,9 @@ export default function BudgetTracker() {
     if (!data) return { monthName: '', channelSpends: [], totalSpent: 0, daysRemaining: 0, projected: 0, dailyBurnRate: 0, idealDailyBurn: 0, requiredDailyBurn: 0 };
 
     const dates = [...new Set(data.map(r => r.date))].sort();
-    const lastDate = new Date(dates[dates.length - 1]);
+    // Parse as a local-wall-clock date so `getDate()` reports the IST calendar
+    // day even when the runtime is in a timezone west of UTC.
+    const lastDate = parseLocalDate(dates[dates.length - 1]);
     const year = lastDate.getFullYear();
     const month = lastDate.getMonth();
     const monthName = lastDate.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
@@ -35,16 +38,18 @@ export default function BudgetTracker() {
       const budget = channelBudgets[ch] || 0;
       const pct = budget > 0 ? (spent / budget) * 100 : 0;
       const projectedSpend = dayOfMonth > 0 ? (spent / dayOfMonth) * daysInMonth : 0;
-      const pacingRatio = budget > 0 ? projectedSpend / budget : 1;
-      
+      const pacingRatio = budget > 0 ? projectedSpend / budget : (spent > 0 ? Infinity : 1);
+
       let status = 'track';
       let recom = 'Maintain current velocity.';
-      if (pacingRatio > 1.05) {
+      if (budget === 0 && spent === 0) {
+        recom = 'No budget set for this channel.';
+      } else if (pacingRatio > 1.05) {
         status = 'critical';
-        recom = `Throttle spend. Projected to overshoot by ₹${formatINRCompact(projectedSpend - budget)}.`;
+        recom = `Throttle spend. Projected to overshoot by ${formatINRCompact(Math.max(0, projectedSpend - budget))}.`;
       } else if (pacingRatio < 0.95) {
         status = 'surplus';
-        recom = `Capacity to scale. ₹${formatINRCompact(budget - projectedSpend)} projected surplus.`;
+        recom = `Capacity to scale. ${formatINRCompact(Math.max(0, budget - projectedSpend))} projected surplus.`;
       }
 
       return { channel: ch, spent, budget, pct: Math.min(pct, 100), projectedSpend, status, recom };
@@ -79,8 +84,8 @@ export default function BudgetTracker() {
       <ChannelName channel={row.channel} style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: 'var(--text-primary)', fontWeight: 600 }} />
       
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 12, color: 'var(--text-secondary)' }}>
-          <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>₹{formatINRCompact(row.spent)}</span> / ₹{formatINRCompact(row.budget)}
+        <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 12, color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>
+          <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{formatINRCompact(row.spent)}</span> / {formatINRCompact(row.budget)}
         </span>
         <div style={{ height: 6, backgroundColor: 'var(--border-strong)', borderRadius: 999, overflow: 'hidden' }}>
           <div style={{ height: '100%', width: `${row.pct}%`, backgroundColor: row.status === 'critical' ? '#EF4444' : row.status === 'surplus' ? '#3B82F6' : '#10B981', borderRadius: 999 }} />
@@ -103,7 +108,7 @@ export default function BudgetTracker() {
 
       <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column' }}>
         <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>EOM Proj.</span>
-        <span style={{ fontFamily: 'Outfit', fontSize: 14, fontWeight: 700, color: row.status === 'critical' ? '#EF4444' : 'var(--text-primary)' }}>₹{formatINRCompact(row.projectedSpend)}</span>
+        <span style={{ fontFamily: 'Outfit', fontSize: 14, fontWeight: 700, color: row.status === 'critical' ? '#EF4444' : 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{formatINRCompact(row.projectedSpend)}</span>
       </div>
     </div>
     </div>
@@ -139,8 +144,8 @@ export default function BudgetTracker() {
             <div>
               <p style={{ fontFamily: 'Outfit', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>Global Allocation Used</p>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 8 }}>
-                <span style={{ fontFamily: 'Outfit', fontSize: 36, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.03em' }}>₹{formatINRCompact(totalSpent)}</span>
-                <span style={{ fontFamily: 'Outfit', fontSize: 18, fontWeight: 500, color: 'var(--text-muted)' }}>/ ₹{formatINRCompact(TOTAL_BUDGET)}</span>
+                <span style={{ fontFamily: 'Outfit', fontSize: 36, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums' }}>{formatINRCompact(totalSpent)}</span>
+                <span style={{ fontFamily: 'Outfit', fontSize: 18, fontWeight: 500, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>/ {formatINRCompact(TOTAL_BUDGET)}</span>
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>
@@ -155,7 +160,7 @@ export default function BudgetTracker() {
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12 }}>
             <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 12, color: 'var(--text-secondary)' }}>{daysRemaining} days remaining in cycle</span>
-            <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 12, color: 'var(--text-secondary)' }}>Projected: <strong style={{ color: 'var(--text-primary)' }}>₹{formatINRCompact(projected)}</strong></span>
+            <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 12, color: 'var(--text-secondary)' }}>Projected: <strong style={{ color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{formatINRCompact(projected)}</strong></span>
           </div>
         </div>
 
@@ -166,12 +171,12 @@ export default function BudgetTracker() {
               {dailyBurnRate > idealDailyBurn ? <TrendingUp size={16} color="#EF4444" /> : <TrendingDown size={16} color="#3B82F6" />}
               <span style={{ fontFamily: 'Outfit', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Daily Velocity</span>
             </div>
-            <span style={{ fontFamily: 'Outfit', fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>₹{formatINRCompact(dailyBurnRate)}<span style={{ fontSize: 14, color: 'var(--text-muted)', fontWeight: 500 }}>/day</span></span>
+            <span style={{ fontFamily: 'Outfit', fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>{formatINRCompact(dailyBurnRate)}<span style={{ fontSize: 14, color: 'var(--text-muted)', fontWeight: 500 }}>/day</span></span>
             <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>Current burn rate</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', borderLeft: '1px solid var(--border-subtle)', paddingLeft: 20 }}>
             <span style={{ fontFamily: 'Outfit', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Target Velocity</span>
-            <span style={{ fontFamily: 'Outfit', fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>₹{formatINRCompact(requiredDailyBurn)}<span style={{ fontSize: 14, color: 'var(--text-muted)', fontWeight: 500 }}>/day</span></span>
+            <span style={{ fontFamily: 'Outfit', fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>{formatINRCompact(requiredDailyBurn)}<span style={{ fontSize: 14, color: 'var(--text-muted)', fontWeight: 500 }}>/day</span></span>
             <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>Required to hit target exactly</span>
           </div>
         </div>

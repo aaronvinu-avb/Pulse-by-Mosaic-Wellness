@@ -5,6 +5,18 @@ import { CHANNELS } from '@/lib/mockData';
 export type PlanningPeriod = '1m' | '1q' | '6m' | '1y' | 'custom';
 export type PlanningMode   = 'conservative' | 'target' | 'aggressive';
 
+/**
+ * Canonical starting monthly budget for the Mix Optimiser.
+ *
+ * This is a PRODUCT-LEVEL CONSTANT (₹50,00,000 = ₹50L / month, ₹6Cr annual)
+ * — not a historical average. Every page that needs a "what if the user
+ * hasn't typed anything yet" fallback should import this constant rather
+ * than hardcoding a literal or deriving from historical spend. Historical
+ * seeding is intentionally disabled because it makes the default wander
+ * with the dataset and surfaces non-round, confusing values in the UI.
+ */
+export const DEFAULT_MONTHLY_BUDGET = 5_000_000;
+
 interface OptimizerState {
   // Planning inputs (shared across all 5 pages)
   budget: number;
@@ -29,10 +41,6 @@ interface OptimizerState {
   // Paused / disabled channels
   paused: Set<string>;
   setPaused: (v: Set<string> | ((prev: Set<string>) => Set<string>)) => void;
-
-  // Whether the initial budget has been set from real data
-  hasSetInitialBudget: boolean;
-  setHasSetInitialBudget: (v: boolean) => void;
 }
 
 const OptimizerContext = createContext<OptimizerState | undefined>(undefined);
@@ -42,14 +50,13 @@ const DEFAULT_EQUAL_ALLOC: Record<string, number> = Object.fromEntries(
 );
 
 export function OptimizerProvider({ children }: { children: ReactNode }) {
-  const [budget, setBudget]                         = useState(5000000);
+  const [budget, setBudget]                         = useState(DEFAULT_MONTHLY_BUDGET);
   const [planningPeriod, setPlanningPeriod]         = useState<PlanningPeriod>('1y');
   const [planningMode, setPlanningMode]             = useState<PlanningMode>('target');
   const [customStartMonth, setCustomStartMonth]     = useState('2025-01');
   const [customEndMonth, setCustomEndMonth]         = useState('2025-12');
   const [allocations, setAllocations]               = useState<Record<string, number>>(DEFAULT_EQUAL_ALLOC);
   const [paused, setPaused]                         = useState<Set<string>>(new Set());
-  const [hasSetInitialBudget, setHasSetInitialBudget] = useState(false);
 
   return (
     <OptimizerContext.Provider value={{
@@ -60,7 +67,6 @@ export function OptimizerProvider({ children }: { children: ReactNode }) {
       customEndMonth, setCustomEndMonth,
       allocations, setAllocations,
       paused, setPaused,
-      hasSetInitialBudget, setHasSetInitialBudget,
     }}>
       {children}
     </OptimizerContext.Provider>

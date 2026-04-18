@@ -1,9 +1,9 @@
-import { memo, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { useMarketingData } from '@/hooks/useMarketingData';
 import { DashboardSkeleton } from '@/components/DashboardSkeleton';
 import { ChannelName } from '@/components/ChannelName';
 import { getMonthlyAggregation, getSeasonalityMetrics, getDayOfWeekMetrics } from '@/lib/calculations';
-import { formatINRCompact } from '@/lib/formatCurrency';
+import { formatINRCompact, formatROAS } from '@/lib/formatCurrency';
 import { CHANNELS, CHANNEL_COLORS } from '@/lib/mockData';
 import {
   Trophy,
@@ -68,9 +68,17 @@ const CustomLegend = memo(({ payload }: { payload?: LegendPayloadEntry[] }) => (
 ));
 
 export default function TrendAnalysis() {
-  const { data, aggregate, isLoading } = useMarketingData({ includeGlobalAggregate: true });
+  const { data, aggregate, isLoading, boundaries } = useMarketingData({ includeGlobalAggregate: true });
   const [metric, setMetric] = useState<Metric>('roas');
-  const [selectedYears, setSelectedYears] = useState<Set<number>>(new Set([2023, 2024, 2025]));
+  const [selectedYears, setSelectedYears] = useState<Set<number> | null>(null);
+
+  // Seed the year selector from the actual dataset the first time boundaries load.
+  // We never hardcode [2023, 2024, 2025] — if the data starts shipping 2026,
+  // the selector picks it up automatically.
+  useEffect(() => {
+    if (selectedYears !== null || !boundaries) return;
+    setSelectedYears(new Set(boundaries.availableYears));
+  }, [boundaries, selectedYears]);
   const [selectedSeasonChannel, setSelectedSeasonChannel] = useState<string>(CHANNELS[5]); // Email default
   const [showCompetitorOverlay, setShowCompetitorOverlay] = useState(false);
   const [spikePage, setSpikePage] = useState(1);
@@ -81,6 +89,7 @@ export default function TrendAnalysis() {
   const dowMetrics = useMemo(() => data ? getDayOfWeekMetrics(data) : [], [data]);
 
   const chartData = useMemo(() => {
+    if (!selectedYears) return [];
     return Object.entries(monthly)
       .filter(([month]) => selectedYears.has(parseInt(month.slice(0, 4))))
       .sort(([a], [b]) => a.localeCompare(b))
@@ -204,7 +213,7 @@ export default function TrendAnalysis() {
   if (isLoading) return <DashboardSkeleton />;
 
   const toggleYear = (y: number) => {
-    const next = new Set(selectedYears);
+    const next = new Set(selectedYears ?? []);
     if (next.has(y)) { if (next.size > 1) next.delete(y); } else next.add(y);
     setSelectedYears(next);
   };
@@ -284,8 +293,8 @@ export default function TrendAnalysis() {
           ))}
         </div>
         <div className="flex gap-1 rounded-xl p-1" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-strong)' }}>
-          {[2023, 2024, 2025].map(y => (
-            <button key={y} onClick={() => toggleYear(y)} style={pillStyle(selectedYears.has(y))}>
+          {(boundaries?.availableYears ?? []).slice().sort((a, b) => a - b).map(y => (
+            <button key={y} onClick={() => toggleYear(y)} style={pillStyle(selectedYears?.has(y) ?? false)}>
               {y}
             </button>
           ))}
@@ -417,10 +426,10 @@ export default function TrendAnalysis() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
           <div className="rounded-xl p-4" style={{ backgroundColor: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.2)' }}>
-            <p style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 14, fontWeight: 500, color: '#34D399' }}>📅 Best overall day: <strong>{heatmapData.bestDay}</strong> — avg ROAS {heatmapData.bestDayRoas.toFixed(1)}x</p>
+            <p style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 14, fontWeight: 500, color: '#34D399' }}>📅 Best overall day: <strong>{heatmapData.bestDay}</strong> — avg ROAS {formatROAS(heatmapData.bestDayRoas)}</p>
           </div>
           <div className="rounded-xl p-4" style={{ backgroundColor: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.2)' }}>
-            <p style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 14, fontWeight: 500, color: '#FBBF24' }}>📅 Worst overall day: <strong>{heatmapData.worstDay}</strong> — avg ROAS {heatmapData.worstDayRoas.toFixed(1)}x</p>
+            <p style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 14, fontWeight: 500, color: '#FBBF24' }}>📅 Worst overall day: <strong>{heatmapData.worstDay}</strong> — avg ROAS {formatROAS(heatmapData.worstDayRoas)}</p>
           </div>
         </div>
       </div>

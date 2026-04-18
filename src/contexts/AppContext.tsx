@@ -2,7 +2,13 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { CHANNELS } from '@/lib/mockData';
 
-export type DateFilterType = 'all' | '2023' | '2024' | '2025' | 'last90' | 'last30';
+/**
+ * The date filter applied globally across the dashboard. Year values are
+ * represented as the 4-digit string (e.g. `"2025"`) so new years can be added
+ * without touching this type — the filter is resolved dynamically against the
+ * actual dataset boundaries in `useMarketingData`.
+ */
+export type DateFilterType = 'all' | 'last90' | 'last30' | `${number}`;
 
 interface AppContextState {
   dateFilter: DateFilterType;

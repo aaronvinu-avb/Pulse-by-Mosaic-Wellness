@@ -6,7 +6,7 @@ import { ChannelName } from '@/components/ChannelName';
 import { getChannelSummaries, getDailySparkline, getChannelSaturationModels, projectRevenue, getTimeFrameMonths } from '@/lib/calculations';
 import { SpendEfficiencyMatrix } from '@/components/SpendEfficiencyMatrix';
 import { LazySection } from '@/components/LazySection';
-import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
+import { formatINR, formatINRCompact, formatROAS } from '@/lib/formatCurrency';
 import { CHANNELS, CHANNEL_COLORS } from '@/lib/mockData';
 import { ArrowUpDown, TrendingDown } from 'lucide-react';
 import {
@@ -164,14 +164,14 @@ export default function ChannelPerformance() {
                     <td style={{ padding: '16px 16px', fontFamily: 'Outfit', fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
                       <ChannelName channel={s.channel} />
                     </td>
-                    <td style={{ padding: '16px 16px', fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: 'var(--text-secondary)' }}>{formatINRCompact(s.totalSpend)}</td>
-                    <td style={{ padding: '16px 16px', fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: 'var(--text-secondary)' }}>{formatINRCompact(s.totalRevenue)}</td>
+                    <td style={{ padding: '16px 16px', fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>{formatINRCompact(s.totalSpend)}</td>
+                    <td style={{ padding: '16px 16px', fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>{formatINRCompact(s.totalRevenue)}</td>
                     <td style={{ padding: '16px 16px' }}>
-                      <span style={{ backgroundColor: badge.bg, color: badge.color, borderRadius: 9999, padding: '4px 12px', fontFamily: 'Outfit', fontSize: 12, fontWeight: 700, letterSpacing: '0.02em' }}>
-                        {s.roas.toFixed(1)}x
+                      <span style={{ backgroundColor: badge.bg, color: badge.color, borderRadius: 9999, padding: '4px 12px', fontFamily: 'Outfit', fontSize: 12, fontWeight: 700, letterSpacing: '0.02em', fontVariantNumeric: 'tabular-nums' }}>
+                        {formatROAS(s.roas)}
                       </span>
                     </td>
-                    <td style={{ padding: '16px 16px', fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: 'var(--text-secondary)' }}>{formatINR(Math.round(s.cpa))}</td>
+                    <td style={{ padding: '16px 16px', fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>{s.cpa > 0 ? formatINR(Math.round(s.cpa)) : '—'}</td>
                     <td style={{ padding: '16px 16px' }}>
                       {aggregate && aggregate.dailySeries[s.channel] ? (
                         <MiniSparkline 
@@ -254,7 +254,7 @@ export default function ChannelPerformance() {
                           <div key={channel} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: entry.color }} />
                             <span style={{ fontSize: 11, color: 'var(--text-secondary)', flex: 1 }}>{channel}</span>
-                            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>₹{formatINRCompact(absoluteSpend)}</span>
+                            <span style={{ fontSize: 11, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>{formatINRCompact(absoluteSpend)}</span>
                             <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', marginLeft: 8 }}>{entry.value.toFixed(2)}x</span>
                           </div>
                         );

@@ -3,10 +3,11 @@ import { useMarketingData } from '@/hooks/useMarketingData';
 import { DashboardSkeleton } from '@/components/DashboardSkeleton';
 import { ChannelName } from '@/components/ChannelName';
 import { CHANNELS } from '@/lib/mockData';
-import { formatINRCompact } from '@/lib/formatCurrency';
+import { formatINRCompact, formatROAS, formatPctDelta } from '@/lib/formatCurrency';
+import { parseLocalDate } from '@/lib/dataBoundaries';
 
 export default function DailyDigest() {
-  const { data, isLoading } = useMarketingData();
+  const { data, isLoading, boundaries } = useMarketingData();
 
   const { yesterday, channelRows, best, worst, totalRevenue } = useMemo(() => {
     if (!data) return { yesterday: '', channelRows: [], best: null, worst: null, totalRevenue: 0 };
@@ -31,10 +32,18 @@ export default function DailyDigest() {
     });
 
     const totalRevenue = channelRows.reduce((s, r) => s + r.revenue, 0);
-    const best = channelRows.reduce((a, b) => a.roas > b.roas ? a : b);
-    const worst = channelRows.reduce((a, b) => a.roas < b.roas ? a : b);
+    // Best / worst are only meaningful for channels that actually ran yesterday.
+    // Without this filter, any channel that was off (spend = 0, roas = 0) would
+    // always appear as the "worst" performer, which is misleading.
+    const liveRows = channelRows.filter(r => r.spend > 0);
+    const best = liveRows.length > 0
+      ? liveRows.reduce((a, b) => (a.roas > b.roas ? a : b))
+      : null;
+    const worst = liveRows.length > 0
+      ? liveRows.reduce((a, b) => (a.roas < b.roas ? a : b))
+      : null;
 
-    const d = new Date(yesterdayDate);
+    const d = parseLocalDate(yesterdayDate);
     const yesterday = d.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
     return { yesterday, channelRows, best, worst, totalRevenue };
@@ -43,8 +52,8 @@ export default function DailyDigest() {
   if (isLoading) return <DashboardSkeleton />;
 
   const summaryCards = [
-    { label: 'Best Performer', value: best?.channel || '-', sub: `ROAS ${best?.roas.toFixed(1)}x`, accent: '#34D399' },
-    { label: 'Worst Performer', value: worst?.channel || '-', sub: `ROAS ${worst?.roas.toFixed(1)}x`, accent: '#F87171' },
+    { label: 'Best Performer', value: best?.channel || '—', sub: best ? `ROAS ${formatROAS(best.roas)}` : 'No channels ran', accent: '#34D399' },
+    { label: 'Worst Performer', value: worst?.channel || '—', sub: worst ? `ROAS ${formatROAS(worst.roas)}` : 'No channels ran', accent: '#F87171' },
     { label: 'Total Revenue', value: formatINRCompact(totalRevenue), sub: 'combined across all channels', accent: '#FB923C' },
   ];
 
@@ -53,7 +62,9 @@ export default function DailyDigest() {
       <div>
         <h1 style={{ fontFamily: 'Outfit', fontSize: 28, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.03em', margin: 0 }}>Daily Digest</h1>
         <p style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>Latest Available Data: {yesterday}</p>
-        <p style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Dataset covers Jan 2023 – Dec 2025. Showing most recent date in the dataset.</p>
+        <p style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+          {boundaries ? `Dataset covers ${boundaries.fullRangeLabel}. ` : ''}Showing most recent date in the dataset.
+        </p>
       </div>
 
       <div className="digest-summary-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
@@ -85,10 +96,10 @@ export default function DailyDigest() {
                 <td style={{ padding: '12px 16px', fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: 'var(--text-primary)' }}>
                   <ChannelName channel={row.channel} />
                 </td>
-                <td style={{ padding: '12px 16px', fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: 'var(--text-primary)' }}>{formatINRCompact(row.spend)}</td>
-                <td style={{ padding: '12px 16px', fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: 'var(--text-primary)' }}>{formatINRCompact(row.revenue)}</td>
-                <td style={{ padding: '12px 16px', fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: row.aboveAvg ? '#34D399' : '#F87171', fontWeight: 600 }}>
-                  {row.aboveAvg ? '+' : ''}{row.vsAvg.toFixed(1)}%
+                <td style={{ padding: '12px 16px', fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{formatINRCompact(row.spend)}</td>
+                <td style={{ padding: '12px 16px', fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{formatINRCompact(row.revenue)}</td>
+                <td style={{ padding: '12px 16px', fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: row.aboveAvg ? '#34D399' : '#F87171', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                  {formatPctDelta(row.vsAvg)}
                 </td>
                 <td style={{ padding: '12px 16px' }}>
                   <span style={{

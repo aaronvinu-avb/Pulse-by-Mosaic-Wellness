@@ -219,5 +219,9 @@ export interface OptimizerModelOutput {
     rawPeriodWeights: Record<string, number>;
     /** Portfolio average efficiency confidence 0–1 */
     portfolioAvgConfidence: number;
+    /** Shared channel baselines — the single source of truth consumed by every page. */
+    baselines: import('./calculations').ChannelBaseline[];
+    /** Per-channel data-quality audit (gaps, outliers, partial months). */
+    auditReport: import('./dataQuality').DataQualityReport | null;
   };
 }

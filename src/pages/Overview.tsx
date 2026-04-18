@@ -4,7 +4,8 @@ import { DashboardSkeleton } from '@/components/DashboardSkeleton';
 import { DeferredRender } from '@/components/DeferredRender';
 import { ChannelName } from '@/components/ChannelName';
 import { getChannelSummaries, getMonthlyAggregation, getChannelSaturationModels, getOptimalAllocationNonLinear, projectRevenue, getTimeFrameMonths, getSeasonalityMetrics } from '@/lib/calculations';
-import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
+import { formatINR, formatINRCompact, formatROAS } from '@/lib/formatCurrency';
+import { parseLocalDate } from '@/lib/dataBoundaries';
 import { CHANNELS } from '@/lib/mockData';
 import { LineChart, Line, ResponsiveContainer } from 'recharts';
 import { Download } from 'lucide-react';
@@ -16,7 +17,7 @@ import { useAppContext } from '@/contexts/AppContext';
 const ORBIT_COLORS = ['#60A5FA', '#34D399', '#FBBF24', '#F87171', '#A78BFA', '#2DD4BF', '#E879F9', '#FB923C', '#86EFAC', '#F9A8D4'];
 
 export default function Overview() {
-  const { data, aggregate, globalAggregate, isLoading, error, refetch, dataSource } = useMarketingData({ includeGlobalAggregate: true });
+  const { data, aggregate, globalAggregate, isLoading, error, refetch, dataSource, boundaries } = useMarketingData({ includeGlobalAggregate: true });
   const { dateFilter } = useAppContext();
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
   const [hoveredRow, setHoveredRow] = useState<number | null>(null);
@@ -35,25 +36,35 @@ export default function Overview() {
 
   const { yoyGrowth, yoyLabel } = useMemo(() => {
     if (!globalAggregate) return { yoyGrowth: 0, yoyLabel: 'vs prior year' };
-    const supportsYearOverYear = dateFilter === 'all' || ['2023', '2024', '2025'].includes(dateFilter);
+
+    // YoY is only well-defined for a full-year or full-dataset view.
+    const isYearFilter = /^\d{4}$/.test(dateFilter);
+    const supportsYearOverYear = dateFilter === 'all' || isYearFilter;
     if (!supportsYearOverYear) {
       return { yoyGrowth: 0, yoyLabel: 'YoY not shown for rolling windows' };
     }
-    
-    let currentYear = '2025';
-    if (['2023', '2024', '2025'].includes(dateFilter)) {
+
+    // Pick the current year either from the filter or from the dataset.
+    let currentYear: string;
+    if (isYearFilter) {
       currentYear = dateFilter;
     } else {
       const years = Object.keys(globalAggregate.yearlyRevenueMap).map(Number).filter(y => !isNaN(y));
-      if (years.length > 0) currentYear = Math.max(...years).toString();
+      if (years.length === 0) return { yoyGrowth: 0, yoyLabel: 'vs prior year' };
+      currentYear = Math.max(...years).toString();
     }
-    
+
     const priorYear = (parseInt(currentYear) - 1).toString();
     const revCurrent = globalAggregate.yearlyRevenueMap[currentYear] || 0;
     const revPrior = globalAggregate.yearlyRevenueMap[priorYear] || 0;
-    
-    const growth = revPrior > 0 ? ((revCurrent - revPrior) / revPrior) * 100 : 0;
-    
+
+    // If the prior year isn't in the dataset, YoY is not meaningful.
+    if (revPrior <= 0) {
+      return { yoyGrowth: 0, yoyLabel: `No ${priorYear} data to compare` };
+    }
+
+    const growth = ((revCurrent - revPrior) / revPrior) * 100;
+
     return {
       yoyGrowth: growth,
       yoyLabel: `${growth >= 0 ? '+' : ''}${growth.toFixed(1)}% (${currentYear} vs ${priorYear})`
@@ -68,9 +79,13 @@ export default function Overview() {
 
   const opportunityGap = useMemo(() => {
     if (models.length === 0 || avgMonthlySpend === 0) return 0;
-    
-    // Determine if we should apply seasonality (only for short-term filters like last30)
-    const activeMonth = new Date().getMonth();
+
+    // Seasonality anchor: the month we're projecting for. We use the month of
+    // the latest AVAILABLE data date (not `Date.now()`), so that a stale
+    // dataset never pulls in an unrelated calendar month's seasonality index.
+    const activeMonth = boundaries
+      ? parseLocalDate(boundaries.latestDate).getMonth()
+      : new Date().getMonth();
     const seasonality = getSeasonalityMetrics(globalAggregate || data || []);
     const getMultiplier = (ch: string) => {
       if (dateFilter !== 'last30') return 1.0;
@@ -93,7 +108,7 @@ export default function Overview() {
     }, 0);
     
     return Math.max(0, optRevenue - currentModelRevenue);
-  }, [models, avgMonthlySpend, summaries, timeFrameMonths, globalAggregate, data, dateFilter]);
+  }, [models, avgMonthlySpend, summaries, timeFrameMonths, globalAggregate, data, dateFilter, boundaries]);
 
   const sorted = useMemo(() =>
     summaries.map((s, i) => ({ ...s, color: ORBIT_COLORS[i], origIdx: i }))
@@ -134,7 +149,7 @@ export default function Overview() {
     { label: 'BLENDED CAC', value: formatINR(blendedCAC), sub: 'acquisition cost per customer', subColor: '#FBBF24', accent: '#FBBF24', size: 36, valueColor: '#FBBF24' },
     { label: 'MONTHLY OPPORTUNITY', value: formatINRCompact(opportunityGap), sub: 'unlocked via AI optimizer', subColor: 'var(--text-muted)', accent: '#34D399', size: 32, valueColor: '#34D399' },
     { label: 'TOTAL SPEND', value: formatINRCompact(totals.spend), sub: 'across 10 channels', subColor: 'var(--text-muted)', accent: '#60A5FA', size: 32 },
-    { label: 'OVERALL ROAS', value: `${totals.roas.toFixed(1)}x`, sub: 'return per rupee spent', subColor: 'var(--text-muted)', accent: '#FB923C', size: 32 },
+    { label: 'OVERALL ROAS', value: formatROAS(totals.roas), sub: 'return per rupee spent', subColor: 'var(--text-muted)', accent: '#FB923C', size: 32 },
   ];
 
   return (
@@ -161,7 +176,9 @@ export default function Overview() {
               </span>
             )}
           </h1>
-          <p style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: 'var(--text-muted)', letterSpacing: '0.01em', marginTop: 6 }}>Marketing intelligence across 10 channels · Jan 2023 – Dec 2025</p>
+          <p style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: 'var(--text-muted)', letterSpacing: '0.01em', marginTop: 6 }}>
+            Marketing intelligence across 10 channels{boundaries ? ` · ${boundaries.fullRangeLabel}` : ''}
+          </p>
         </div>
         <button 
           className="overview-export-btn flex items-center gap-2 px-4 py-2 rounded-xl transition-all hover:scale-105 active:scale-95"
@@ -196,12 +213,10 @@ export default function Overview() {
         {/* Left KPI panel */}
         <div className="overview-kpi-panel" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 16, padding: 28, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%', overflow: 'hidden' }}>
           <p style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: 'var(--text-muted)' }}>
-            {dateFilter === 'all' ? 'Jan 2023 – Dec 2025' : 
-             dateFilter === '2025' ? 'Year 2025' :
-             dateFilter === '2024' ? 'Year 2024' :
-             dateFilter === '2023' ? 'Year 2023' :
+            {dateFilter === 'all' ? (boundaries?.fullRangeLabel ?? 'All time') :
              dateFilter === 'last30' ? 'Last 30 Days' :
-             dateFilter === 'last90' ? 'Last 90 Days' : 'Selected Timeframe'}
+             dateFilter === 'last90' ? 'Last 90 Days' :
+             /^\d{4}$/.test(dateFilter) ? `Year ${dateFilter}` : 'Selected Timeframe'}
           </p>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
             {metrics.map((m, i) => (
@@ -283,7 +298,7 @@ export default function Overview() {
                         <ChannelName channel={ch.channel} style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 13, fontWeight: 500, color: isHovered || isExpanded ? 'var(--text-primary)' : 'var(--text-secondary)', transition: 'color 140ms' }} />
                         <span style={{ fontFamily: 'Outfit', fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', letterSpacing: '-0.02em', textAlign: 'right' }}>{formatINRCompact(ch.totalRevenue)}</span>
                         <div style={{ display: 'flex', justifyContent: 'center' }}>
-                          <span style={{ backgroundColor: `${ch.color}1F`, color: ch.color, fontFamily: 'Outfit', fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 9999 }}>{ch.roas.toFixed(1)}x</span>
+                          <span style={{ backgroundColor: `${ch.color}1F`, color: ch.color, fontFamily: 'Outfit', fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 9999, fontVariantNumeric: 'tabular-nums' }}>{formatROAS(ch.roas)}</span>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                           <div style={{ width: 90, height: 28 }}>
@@ -302,7 +317,7 @@ export default function Overview() {
                             {[
                               { label: 'REVENUE', value: formatINRCompact(ch.totalRevenue), color: 'var(--text-primary)' },
                               { label: 'SPEND', value: formatINRCompact(ch.totalSpend), color: 'var(--text-primary)' },
-                              { label: 'ROAS', value: `${ch.roas.toFixed(1)}x`, color: ch.color },
+                              { label: 'ROAS', value: formatROAS(ch.roas), color: ch.color },
                               { label: 'CONVERSIONS', value: ch.conversions.toLocaleString('en-IN'), color: 'var(--text-primary)' },
                               { label: 'NEW CUSTOMERS', value: ch.newCustomers.toLocaleString('en-IN'), color: 'var(--text-primary)' },
                               { label: 'nCAC', value: `₹${ch.newCustomers > 0 ? Math.round(ch.totalSpend / ch.newCustomers).toLocaleString('en-IN') : '—'}`, color: 'var(--text-primary)' },

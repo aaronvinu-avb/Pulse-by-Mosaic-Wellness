@@ -2,7 +2,8 @@ import { useMemo } from 'react';
 import { useMarketingData } from '@/hooks/useMarketingData';
 import { DashboardSkeleton } from '@/components/DashboardSkeleton';
 import { ChannelName } from '@/components/ChannelName';
-import { formatINRCompact } from '@/lib/formatCurrency';
+import { formatINRCompact, formatROAS } from '@/lib/formatCurrency';
+import { parseLocalDate } from '@/lib/dataBoundaries';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -25,11 +26,14 @@ export default function BestDays() {
       dow: DAYS[new Date(date).getDay()],
     })).sort((a, b) => b.revenue - a.revenue);
 
-    const bestDays = days.slice(0, 10);
-    const worstDays = days.slice(-10).reverse();
+    // Exclude zero-spend days from both the worst-list and the averages below.
+    // A zero-spend day is almost always a data gap, not a real "worst day".
+    const activeDays = days.filter(d => d.spend > 0);
+    const bestDays = activeDays.slice(0, 10);
+    const worstDays = activeDays.slice(-10).reverse();
 
     const dowStats: Record<string, { rev: number; spend: number; count: number }> = {};
-    days.forEach(d => {
+    activeDays.forEach(d => {
       if (!dowStats[d.dow]) dowStats[d.dow] = { rev: 0, spend: 0, count: 0 };
       dowStats[d.dow].rev += d.revenue;
       dowStats[d.dow].spend += d.spend;
@@ -37,17 +41,23 @@ export default function BestDays() {
     });
     const safeRoas = (rev: number, spend: number) => (spend > 0 ? rev / spend : 0);
     const bestDowEntry = Object.entries(dowStats).sort((a, b) => safeRoas(b[1].rev, b[1].spend) - safeRoas(a[1].rev, a[1].spend))[0];
-    const bestDow = bestDowEntry ? `${bestDowEntry[0]} · ${safeRoas(bestDowEntry[1].rev, bestDowEntry[1].spend).toFixed(1)}x ROAS` : '';
+    const bestDow = bestDowEntry ? `${bestDowEntry[0]} · ${formatROAS(safeRoas(bestDowEntry[1].rev, bestDowEntry[1].spend))} ROAS` : '';
 
+    // Best month = calendar month with the highest *average daily revenue*
+    // across the dataset. Using the sum would bias toward months with more
+    // days of coverage (e.g. Jan/Mar/May with 31 days, or years with more
+    // data coverage). Averaging makes the comparison apples-to-apples.
     const monthStats: Record<string, { rev: number; count: number }> = {};
-    days.forEach(d => {
-      const m = MONTHS[new Date(d.date).getMonth()];
+    activeDays.forEach(d => {
+      const m = MONTHS[parseLocalDate(d.date).getMonth()];
       if (!monthStats[m]) monthStats[m] = { rev: 0, count: 0 };
       monthStats[m].rev += d.revenue;
       monthStats[m].count++;
     });
-    const bestMonthEntry = Object.entries(monthStats).sort((a, b) => b[1].rev - a[1].rev)[0];
-    const bestMonth = bestMonthEntry ? `${bestMonthEntry[0]} · ${formatINRCompact(bestMonthEntry[1].rev)} total` : '';
+    const bestMonthEntry = Object.entries(monthStats)
+      .map(([m, v]) => ({ m, avg: v.count > 0 ? v.rev / v.count : 0, total: v.rev }))
+      .sort((a, b) => b.avg - a.avg)[0];
+    const bestMonth = bestMonthEntry ? `${bestMonthEntry.m} · ${formatINRCompact(bestMonthEntry.avg)} avg/day` : '';
 
     const peakDates = new Set(bestDays.map(d => d.date));
     const chRevOnPeaks: Record<string, number> = {};
@@ -86,7 +96,7 @@ export default function BestDays() {
             }}>
               <td style={{ padding: '10px 14px', fontFamily: 'Outfit', fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)' }}>{i + 1}</td>
               <td style={{ padding: '10px 14px', fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: 'var(--text-primary)' }}>
-                {new Date(row.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                {parseLocalDate(row.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
               </td>
               <td style={{ padding: '10px 14px' }}>
                 <span style={{
@@ -94,8 +104,8 @@ export default function BestDays() {
                   padding: '3px 10px', borderRadius: 999,
                 }}>{row.dow}</span>
               </td>
-              <td style={{ padding: '10px 14px', fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: 'var(--text-primary)' }}>{formatINRCompact(row.revenue)}</td>
-              <td style={{ padding: '10px 14px', fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: '#FB923C', fontWeight: 600 }}>{row.roas.toFixed(1)}x</td>
+              <td style={{ padding: '10px 14px', fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{formatINRCompact(row.revenue)}</td>
+              <td style={{ padding: '10px 14px', fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: '#FB923C', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{formatROAS(row.roas)}</td>
             </tr>
           ))}
         </tbody>
