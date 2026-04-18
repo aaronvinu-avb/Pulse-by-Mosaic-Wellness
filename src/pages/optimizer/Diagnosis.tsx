@@ -20,47 +20,29 @@ import {
   ArrowRight, ArrowLeft, ChevronDown, ChevronRight,
   ShieldAlert, Activity, Zap, Clock,
 } from 'lucide-react';
-
-// ── Design tokens ─────────────────────────────────────────────────────────────
-
-const T = {
-  overline: {
-    fontFamily: 'Outfit' as const, fontSize: 10, fontWeight: 600 as const,
-    color: 'var(--text-muted)', textTransform: 'uppercase' as const,
-    letterSpacing: '0.09em', margin: 0,
-  },
-  body: {
-    fontFamily: 'Plus Jakarta Sans' as const, fontSize: 13,
-    fontWeight: 400 as const, color: 'var(--text-muted)', margin: 0, lineHeight: 1.6,
-  },
-  label: {
-    fontFamily: 'Outfit' as const, fontSize: 11, fontWeight: 600 as const,
-    color: 'var(--text-muted)', margin: 0,
-  },
-  num: { fontFamily: 'Outfit' as const, fontVariantNumeric: 'tabular-nums' as const },
-};
-
-const CARD: React.CSSProperties = {
-  padding: '18px 22px',
-  border: '1px solid var(--border-subtle)',
-  borderRadius: 12,
-  backgroundColor: 'var(--bg-card)',
-};
+import {
+  T, CARD, badgeStyle, dotStyle,
+  STATUS_META as STATUS_META_BASE, STATUS_ORDER, type StatusKey,
+} from './_shared/ui';
 
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-// Health label + styling map
-const STATUS_META = {
-  efficient:      { label: 'On Track',      color: '#34D399', bg: 'rgba(52,211,153,0.10)', Icon: CheckCircle2 },
-  saturated:      { label: 'Saturated',     color: '#F87171', bg: 'rgba(248,113,113,0.10)', Icon: TrendingDown },
-  'over-scaled':  { label: 'Over-weighted', color: '#FBBF24', bg: 'rgba(251,191,36,0.10)', Icon: AlertTriangle },
-  'under-scaled': { label: 'Under-invested',color: '#60A5FA', bg: 'rgba(96,165,250,0.10)', Icon: TrendingUp },
+// Per-status icon mapping (Diagnosis adds a visual glyph to each status row).
+const STATUS_ICON = {
+  efficient:      CheckCircle2,
+  saturated:      TrendingDown,
+  'over-scaled':  AlertTriangle,
+  'under-scaled': TrendingUp,
+  'high-risk':    ShieldAlert,
 } as const;
 
-// Sort priority for rows: worst issues first
-const STATUS_ORDER: Record<string, number> = {
-  saturated: 0, 'over-scaled': 1, 'under-scaled': 2, efficient: 3,
-};
+// Merge icons into the shared status meta for local use.
+const STATUS_META = Object.fromEntries(
+  (Object.keys(STATUS_META_BASE) as StatusKey[]).map(k => [
+    k,
+    { ...STATUS_META_BASE[k], Icon: STATUS_ICON[k] },
+  ]),
+) as Record<StatusKey, { label: string; color: string; Icon: typeof CheckCircle2 }>;
 
 // ── Derived signal helpers ─────────────────────────────────────────────────────
 
@@ -145,16 +127,19 @@ export default function Diagnosis() {
     <div style={{ maxWidth: 1200, display: 'flex', flexDirection: 'column', gap: 20 }}>
 
       {/* ── A. Page Header ────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
+      <div>
         <h1 style={{
           fontFamily: 'Outfit', fontSize: 26, fontWeight: 800,
           color: 'var(--text-primary)', letterSpacing: '-0.03em', margin: 0,
         }}>
           Diagnosis
         </h1>
-        <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>
-          Labels from tuned signals · current mix only
-        </span>
+        <p style={{
+          fontFamily: 'Plus Jakarta Sans', fontSize: 13, fontWeight: 400,
+          color: 'var(--text-secondary)', margin: '5px 0 0', lineHeight: 1.5,
+        }}>
+          See which channels are over-invested, under-invested, or on track.
+        </p>
       </div>
 
       {/* ── B. Channel Health Overview ────────────────────────────────────── */}
@@ -198,13 +183,13 @@ export default function Diagnosis() {
         ].map(s => (
           <div key={s.label} style={{
             padding: '14px 16px',
-            border: `1px solid ${s.color}22`,
+            border: '1px solid var(--border-subtle)',
             borderRadius: 12,
-            backgroundColor: `${s.color}07`,
+            backgroundColor: 'var(--bg-card)',
             display: 'flex', flexDirection: 'column',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <p style={{ ...T.overline, fontSize: 9, color: s.color }}>{s.label}</p>
+              <p style={{ ...T.overline, fontSize: 9 }}>{s.label}</p>
               <s.Icon size={11} color={s.color} />
             </div>
             <p style={{
@@ -213,7 +198,7 @@ export default function Diagnosis() {
             }}>
               {s.count}
             </p>
-            <p style={{ ...T.body, fontSize: 10, lineHeight: 1.4 }}>{s.note}</p>
+            <p style={{ ...T.body, fontSize: 10, lineHeight: 1.4, flex: 1 }}>{s.note}</p>
             <div style={{ height: 2, backgroundColor: s.color, borderRadius: 1, marginTop: 10, opacity: 0.28 }} />
           </div>
         ))}
@@ -235,7 +220,7 @@ export default function Diagnosis() {
               const d      = diagnosis[ch];
               const row    = currentPlan.channels[ch];
               const expl   = explanation[ch];
-              const status = (d?.status || 'efficient') as keyof typeof STATUS_META;
+              const status = (d?.status || 'efficient') as StatusKey;
               const st     = STATUS_META[status];
               const Icon   = st.Icon;
               const histPct = Math.round((historicalFractions[ch] || 0) * 100);
@@ -269,12 +254,8 @@ export default function Diagnosis() {
                           fontFamily: 'Plus Jakarta Sans', fontSize: 13, fontWeight: 700,
                           color: 'var(--text-primary)',
                         }} />
-                        <span style={{
-                          fontFamily: 'Outfit', fontSize: 9, fontWeight: 700,
-                          color: st.color, backgroundColor: st.bg,
-                          padding: '3px 8px', borderRadius: 4,
-                          textTransform: 'uppercase' as const, letterSpacing: '0.06em',
-                        }}>
+                        <span style={badgeStyle(st.color)}>
+                          <span style={dotStyle(st.color)} />
                           {st.label}
                         </span>
                       </div>
@@ -286,15 +267,10 @@ export default function Diagnosis() {
                     {/* Inline signal tags */}
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
                       {[
-                        { icon: <Zap size={9} />, text: `Efficiency: ${eff.text}`, color: eff.color },
-                        { icon: <Activity size={9} />, text: `Signal: ${stab.text}`, color: stab.color },
+                        { icon: <Zap size={9} />,      text: eff.text,  color: eff.color },
+                        { icon: <Activity size={9} />, text: stab.text, color: stab.color },
                       ].map(tag => (
-                        <span key={tag.text} style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 4,
-                          fontFamily: 'Outfit', fontSize: 9, fontWeight: 600,
-                          color: tag.color, backgroundColor: `${tag.color}18`,
-                          padding: '3px 8px', borderRadius: 4, whiteSpace: 'nowrap' as const,
-                        }}>
+                        <span key={tag.text} style={badgeStyle(tag.color)}>
                           {tag.icon} {tag.text}
                         </span>
                       ))}
@@ -349,12 +325,8 @@ export default function Diagnosis() {
                             </div>
                           ))}
                           <div style={{ marginTop: 8, borderTop: '1px solid var(--border-subtle)', paddingTop: 8 }}>
-                            <span style={{
-                              fontFamily: 'Outfit', fontSize: 10, fontWeight: 600,
-                              color: press.color, backgroundColor: `${press.color}18`,
-                              padding: '3px 9px', borderRadius: 4,
-                              textTransform: 'uppercase' as const, letterSpacing: '0.06em',
-                            }}>
+                            <span style={badgeStyle(press.color)}>
+                              <span style={dotStyle(press.color)} />
                               {press.text}
                             </span>
                             {d.isSaturated && (
@@ -428,13 +400,10 @@ export default function Diagnosis() {
 
           {/* Over-weighted */}
           <div style={{ ...CARD, borderColor: 'rgba(251,191,36,0.2)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
               <AlertTriangle size={13} color="#FBBF24" />
-              <p style={{ ...T.overline, color: '#FBBF24' }}>Over-weighted</p>
+              <p style={{ ...T.overline, color: '#FBBF24' }}>Over-Weighted</p>
             </div>
-            <p style={{ ...T.body, fontSize: 12, marginBottom: 16 }}>
-              These channels are receiving more budget than their tuned efficiency currently justifies, relative to the historical baseline.
-            </p>
             {overWeightedChannels.length === 0 ? (
               <p style={{ ...T.body, fontSize: 12, fontStyle: 'italic' }}>None — no channels exceed their historical efficiency range.</p>
             ) : (
@@ -467,13 +436,10 @@ export default function Diagnosis() {
 
           {/* Under-invested */}
           <div style={{ ...CARD, borderColor: 'rgba(96,165,250,0.2)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
               <TrendingUp size={13} color="#60A5FA" />
-              <p style={{ ...T.overline, color: '#60A5FA' }}>Under-invested</p>
+              <p style={{ ...T.overline, color: '#60A5FA' }}>Under-Invested</p>
             </div>
-            <p style={{ ...T.body, fontSize: 12, marginBottom: 16 }}>
-              These channels show strong tuned efficiency but are currently receiving less budget than historical patterns suggest is appropriate.
-            </p>
             {underWeightedChannels.length === 0 ? (
               <p style={{ ...T.body, fontSize: 12, fontStyle: 'italic' }}>None — all efficient channels are well-funded.</p>
             ) : (
@@ -508,21 +474,24 @@ export default function Diagnosis() {
       {/* ── E. Diagnosis Matrix ───────────────────────────────────────────── */}
       <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 12, overflow: 'hidden', backgroundColor: 'var(--bg-card)' }}>
 
-        {/* Table header */}
-        <div style={{ padding: '18px 24px 14px' }}>
-          <p style={{ ...T.overline, marginBottom: 4 }}>Full channel matrix</p>
-          <p style={{ ...T.body, fontSize: 12 }}>
-            All channels scored across four diagnostic dimensions. Click any row for a deeper breakdown.
+        {/* Toolbar — tight, single line */}
+        <div style={{
+          padding: '14px 22px',
+          borderBottom: '1px solid var(--border-subtle)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+        }}>
+          <p style={{ ...T.overline, fontSize: 10 }}>Full channel matrix</p>
+          <p style={{ ...T.body, fontSize: 11, color: 'var(--text-muted)' }}>
+            {sortedChannels.length} channels · click a row for detail
           </p>
         </div>
 
         {/* Column headers */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: '24px minmax(140px,2fr) 110px 110px 1fr 90px 1fr',
-          padding: '9px 24px', gap: 8,
+          gridTemplateColumns: '18px minmax(140px,2fr) 120px 100px 130px 90px 1fr',
+          padding: '8px 22px', gap: 10,
           backgroundColor: 'var(--bg-root)',
-          borderTop: '1px solid var(--border-subtle)',
           borderBottom: '1px solid var(--border-subtle)',
         }}>
           {['', 'Channel', 'Health', 'Efficiency', 'Spend Pressure', 'Stability', 'Why Flagged'].map((h, i) => (
@@ -536,7 +505,7 @@ export default function Diagnosis() {
           const d       = diagnosis[ch];
           const row     = currentPlan.channels[ch];
           const expl    = explanation[ch];
-          const status  = (d?.status || 'efficient') as keyof typeof STATUS_META;
+          const status  = (d?.status || 'efficient') as StatusKey;
           const st      = STATUS_META[status];
           const isOpen  = expandedRows.has(ch);
           const isFlagged = d?.isFlagged ?? false;
@@ -551,14 +520,14 @@ export default function Diagnosis() {
                 onClick={() => toggleRow(ch)}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '24px minmax(140px,2fr) 110px 110px 1fr 90px 1fr',
-                  padding: '12px 24px', gap: 8, alignItems: 'center',
+                  gridTemplateColumns: '18px minmax(140px,2fr) 120px 100px 130px 90px 1fr',
+                  padding: '11px 22px', gap: 10, alignItems: 'center',
                   width: '100%', background: 'transparent', border: 'none',
                   cursor: 'pointer', textAlign: 'left', transition: '80ms',
                 }}
               >
                 {/* Chevron */}
-                <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
+                <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {isOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                 </span>
 
@@ -566,20 +535,15 @@ export default function Diagnosis() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                   <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: color, flexShrink: 0 }} />
                   <ChannelName channel={ch} style={{
-                    fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: 700,
+                    fontFamily: 'Plus Jakarta Sans', fontSize: 13, fontWeight: 600,
                     color: 'var(--text-primary)',
                   }} />
                 </div>
 
                 {/* Health pill */}
-                <div style={{ textAlign: 'center' }}>
-                  <span style={{
-                    fontFamily: 'Outfit', fontSize: 9, fontWeight: 700,
-                    color: st.color, backgroundColor: st.bg,
-                    padding: '3px 9px', borderRadius: 4,
-                    textTransform: 'uppercase' as const, letterSpacing: '0.05em',
-                    whiteSpace: 'nowrap' as const,
-                  }}>
+                <div style={{ display: 'flex', justifyContent: 'center' }}>
+                  <span style={badgeStyle(st.color)}>
+                    <span style={dotStyle(st.color)} />
                     {st.label}
                   </span>
                 </div>
@@ -608,7 +572,7 @@ export default function Diagnosis() {
               {/* Expanded row detail */}
               {isOpen && (
                 <div style={{
-                  padding: '0 24px 16px',
+                  padding: '0 22px 16px',
                   borderTop: `1px solid ${st.color}18`,
                   backgroundColor: 'var(--bg-root)',
                 }}>
@@ -656,13 +620,7 @@ export default function Diagnosis() {
                         {d?.explanation || `${ch} is operating within a normal efficiency range relative to the portfolio.`}
                       </p>
                       {isFlagged && d?.reasonCode && (
-                        <span style={{
-                          display: 'inline-block', marginTop: 9,
-                          fontFamily: 'Outfit', fontSize: 9, fontWeight: 700,
-                          color: st.color, backgroundColor: st.bg,
-                          padding: '3px 9px', borderRadius: 4,
-                          textTransform: 'uppercase' as const, letterSpacing: '0.06em',
-                        }}>
+                        <span style={{ ...badgeStyle(st.color), marginTop: 9 }}>
                           {d.reasonCode}
                         </span>
                       )}
@@ -716,13 +674,14 @@ export default function Diagnosis() {
             ) : (
               flaggedChannels.map(ch => {
                 const d = diagnosis[ch];
-                const status = (d?.status || 'efficient') as keyof typeof STATUS_META;
+                const status = (d?.status || 'efficient') as StatusKey;
                 const st = STATUS_META[status];
                 return (
                   <div key={ch} style={{ paddingBottom: 8, marginBottom: 8, borderBottom: '1px solid var(--border-subtle)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <ChannelName channel={ch} style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }} />
-                      <span style={{ fontFamily: 'Outfit', fontSize: 9, fontWeight: 700, color: st.color, backgroundColor: st.bg, padding: '2px 7px', borderRadius: 4, textTransform: 'uppercase' as const }}>
+                      <span style={badgeStyle(st.color)}>
+                        <span style={dotStyle(st.color)} />
                         {st.label}
                       </span>
                     </div>
@@ -754,7 +713,7 @@ export default function Diagnosis() {
         ...CARD,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         gap: 20, flexWrap: 'wrap' as const,
-        borderColor: 'rgba(232,128,58,0.25)',
+        borderColor: 'rgba(232,128,58,0.22)',
       }}>
         <div>
           <p style={{ fontFamily: 'Outfit', fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>

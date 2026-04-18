@@ -29,42 +29,13 @@ import {
   X, RotateCcw, Scale, SlidersHorizontal,
 } from 'lucide-react';
 import type { PlanningPeriod, PlanningMode } from '@/contexts/OptimizerContext';
-
-// ── Design tokens ─────────────────────────────────────────────────────────────
-
-const T = {
-  overline: {
-    fontFamily: 'Outfit' as const, fontSize: 10, fontWeight: 600 as const,
-    color: 'var(--text-muted)', textTransform: 'uppercase' as const,
-    letterSpacing: '0.09em', margin: 0,
-  },
-  body: {
-    fontFamily: 'Plus Jakarta Sans' as const, fontSize: 13,
-    fontWeight: 400 as const, color: 'var(--text-muted)', margin: 0, lineHeight: 1.6,
-  },
-  num: { fontFamily: 'Outfit' as const, fontVariantNumeric: 'tabular-nums' as const },
-};
-
-const CARD: React.CSSProperties = {
-  padding: '18px 22px',
-  border: '1px solid var(--border-subtle)',
-  borderRadius: 12,
-  backgroundColor: 'var(--bg-card)',
-};
+import {
+  T, CARD, TABLE, badgeStyle, dotStyle,
+  STATUS_META, STATUS_ORDER, type StatusKey,
+} from './_shared/ui';
 
 // Main table grid — 6 data columns + action
 const COL = 'minmax(160px,1fr) 70px 90px 96px 52px 96px 56px';
-
-const STATUS_META = {
-  efficient:      { label: 'On Track',      color: '#34D399', bg: 'rgba(52,211,153,0.09)'  },
-  saturated:      { label: 'Saturated',     color: '#F87171', bg: 'rgba(248,113,113,0.09)' },
-  'over-scaled':  { label: 'Over-weighted', color: '#FBBF24', bg: 'rgba(251,191,36,0.09)'  },
-  'under-scaled': { label: 'Under-invested',color: '#60A5FA', bg: 'rgba(96,165,250,0.09)'  },
-} as const;
-
-const STATUS_ORDER: Record<string, number> = {
-  saturated: 0, 'over-scaled': 1, 'under-scaled': 2, efficient: 3,
-};
 
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const DOW_NAMES   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -106,6 +77,7 @@ export default function CurrentMix() {
   // Changes only commit to context on Save — table stays stable during editing.
   const [drawerChannel, setDrawerChannel]   = useState<string | null>(null);
   const [pendingAllocs, setPendingAllocs]   = useState<Record<string, number>>({});
+  const [hoveredRow,    setHoveredRow]      = useState<string | null>(null);
 
   const openDrawer = useCallback((ch: string) => {
     setPendingAllocs({ ...allocations });
@@ -166,7 +138,7 @@ export default function CurrentMix() {
   const dExpl    = dCh ? explanation[dCh]   : null;
   const dDiag    = dCh ? diagnosis[dCh]     : null;
   const dRow     = dCh ? currentPlan.channels[dCh] : null;
-  const dStatus  = ((dDiag?.status || 'efficient') as keyof typeof STATUS_META);
+  const dStatus  = ((dDiag?.status || 'efficient') as StatusKey);
   const dSt      = STATUS_META[dStatus];
   const dPct     = dCh ? Math.round((pendingAllocs[dCh] || 0) * 100) : 0;
   const dHistPct = dCh ? Math.round((historicalFractions[dCh] || 0) * 100) : 0;
@@ -175,25 +147,22 @@ export default function CurrentMix() {
   const dConf    = dExpl ? confidenceLabel(dExpl.efficiencyConfidence) : { text: '', color: 'var(--text-muted)' };
 
   return (
-    <div style={{ maxWidth: 1200, display: 'flex', flexDirection: 'column', gap: 18 }}>
+    <div style={{ maxWidth: 1200, display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-      {/* ── A. Header — title + inline metadata only ───────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
+      {/* ── A. Header — title + one subtitle line ──────────────────────────── */}
+      <div>
         <h1 style={{
           fontFamily: 'Outfit', fontSize: 26, fontWeight: 800,
           color: 'var(--text-primary)', letterSpacing: '-0.03em', margin: 0,
         }}>
           Current Mix
         </h1>
-        {/* Compact metadata — right-aligned, low prominence */}
-        <span style={{
-          fontFamily: 'Plus Jakarta Sans', fontSize: 11,
-          color: 'var(--text-muted)', whiteSpace: 'nowrap', flexShrink: 0,
+        <p style={{
+          fontFamily: 'Plus Jakarta Sans', fontSize: 13, fontWeight: 400,
+          color: 'var(--text-secondary)', margin: '5px 0 0', lineHeight: 1.5,
         }}>
-          {Math.round(totalHistoricalMonths)}mo history
-          {dataRange ? ` · ${dataRange.min} – ${dataRange.max}` : ''}
-          {' · '}{dataSource === 'api' ? 'Live' : dataSource === 'cached' ? 'Cached' : 'Sample data'}
-        </span>
+          Review your allocation and modeled performance.
+        </p>
       </div>
 
       {/* ── B. Controls — inline strip, no card header text ──────────────── */}
@@ -336,6 +305,16 @@ export default function CurrentMix() {
         ))}
       </div>
 
+      {/* Compact metadata line — source of truth for the forecast */}
+      <p style={{
+        fontFamily: 'Plus Jakarta Sans', fontSize: 11,
+        color: 'var(--text-muted)', margin: '-6px 0 0', lineHeight: 1,
+      }}>
+        {Math.round(totalHistoricalMonths)}mo history
+        {dataRange ? ` · ${dataRange.min} – ${dataRange.max}` : ''}
+        {' · '}{dataSource === 'api' ? 'Live' : dataSource === 'cached' ? 'Cached' : 'Sample data'}
+      </p>
+
       {/* ── D. Allocation Block ──────────────────────────────────────────────── */}
       <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 12, backgroundColor: 'var(--bg-card)' }}>
 
@@ -344,7 +323,7 @@ export default function CurrentMix() {
           padding: '11px 20px',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           borderBottom: '1px solid var(--border-subtle)',
-          borderRadius: '14px 14px 0 0',
+          borderRadius: '12px 12px 0 0',
         }}>
           <p style={{ fontFamily: 'Outfit', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
             Allocation
@@ -378,7 +357,7 @@ export default function CurrentMix() {
             }}>
               {[
                 { h: 'Channel',          align: 'left'   },
-                { h: 'Allocation',       align: 'right'  },
+                { h: 'Allocation %',     align: 'right'  },
                 { h: 'Forecast Spend',   align: 'right'  },
                 { h: 'Forecast Revenue', align: 'right'  },
                 { h: 'ROAS',             align: 'center' },
@@ -394,7 +373,7 @@ export default function CurrentMix() {
               const color     = CHANNEL_COLORS[CHANNELS.indexOf(ch) % CHANNEL_COLORS.length];
               const row       = currentPlan.channels[ch];
               const diag      = diagnosis[ch];
-              const status    = (diag?.status || 'efficient') as keyof typeof STATUS_META;
+              const status    = (diag?.status || 'efficient') as StatusKey;
               const st        = STATUS_META[status];
               const isSelected = drawerChannel === ch;
 
@@ -403,13 +382,24 @@ export default function CurrentMix() {
               const roas    = row?.roas          ?? 0;
               const allocPct = (row?.allocationPct ?? 0).toFixed(1);
 
+              const isHovered = hoveredRow === ch && !isSelected;
+
               return (
-                <div key={ch} style={{
-                  borderBottom: '1px solid var(--border-subtle)',
-                  backgroundColor: isSelected ? `${dColor}08` : 'transparent',
-                  borderLeft: isSelected ? `2px solid ${dColor}` : '2px solid transparent',
-                  transition: 'background-color 150ms',
-                }}>
+                <div
+                  key={ch}
+                  onMouseEnter={() => setHoveredRow(ch)}
+                  onMouseLeave={() => setHoveredRow(null)}
+                  onClick={() => isSelected ? closeDrawer() : openDrawer(ch)}
+                  style={{
+                    borderBottom: '1px solid var(--border-subtle)',
+                    backgroundColor: isSelected
+                      ? `${dColor}0E`
+                      : isHovered ? 'rgba(255,255,255,0.015)' : 'transparent',
+                    borderLeft: isSelected ? `2px solid ${dColor}` : '2px solid transparent',
+                    cursor: 'pointer', userSelect: 'none',
+                    transition: 'background-color 120ms ease',
+                  }}
+                >
                   <div style={{
                     display: 'grid', gridTemplateColumns: COL,
                     padding: '11px 20px', gap: 8, alignItems: 'center',
@@ -446,12 +436,8 @@ export default function CurrentMix() {
 
                     {/* Health badge */}
                     <div style={{ display: 'flex', justifyContent: 'center' }}>
-                      <span style={{
-                        fontFamily: 'Outfit', fontSize: 9, fontWeight: 700, letterSpacing: '0.04em',
-                        color: st.color, backgroundColor: st.bg,
-                        padding: '3px 8px', borderRadius: 4,
-                        textTransform: 'uppercase', whiteSpace: 'nowrap',
-                      }}>
+                      <span style={badgeStyle(st.color)}>
+                        <span style={dotStyle(st.color)} />
                         {st.label}
                       </span>
                     </div>
@@ -459,16 +445,16 @@ export default function CurrentMix() {
                     {/* Adjust action */}
                     <div style={{ display: 'flex', justifyContent: 'center' }}>
                       <button
-                        onClick={() => isSelected ? closeDrawer() : openDrawer(ch)}
+                        onClick={e => { e.stopPropagation(); isSelected ? closeDrawer() : openDrawer(ch); }}
                         style={{
                           display: 'flex', alignItems: 'center', gap: 4,
                           fontFamily: 'Outfit', fontSize: 10, fontWeight: 600,
                           padding: '4px 9px', borderRadius: 5, cursor: 'pointer', transition: '120ms',
                           border: isSelected
                             ? `1px solid ${dColor}55`
-                            : '1px solid var(--border-subtle)',
+                            : isHovered ? '1px solid var(--border-strong)' : '1px solid var(--border-subtle)',
                           backgroundColor: isSelected ? `${dColor}12` : 'transparent',
-                          color: isSelected ? dColor : 'var(--text-muted)',
+                          color: isSelected ? dColor : isHovered ? 'var(--text-secondary)' : 'var(--text-muted)',
                         }}
                       >
                         <SlidersHorizontal size={9} />
@@ -480,21 +466,63 @@ export default function CurrentMix() {
               );
             })}
 
-            {/* Table footer — committed total */}
-            <div style={{
-              padding: '10px 20px',
-              borderTop: '1px solid var(--border-subtle)',
-              backgroundColor: 'var(--bg-root)',
-              borderRadius: drawerChannel ? '0' : '0 0 14px 14px',
-              display: 'flex', alignItems: 'center', gap: 10,
-            }}>
-              <span style={{ ...T.overline, fontSize: 9 }}>Total</span>
-              <div style={{ flex: 1, height: 3, borderRadius: 2, backgroundColor: 'var(--border-strong)', overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: '100%', backgroundColor: '#34D399', opacity: 0.4, borderRadius: 2 }} />
-              </div>
-              <span style={{ ...T.num, fontSize: 12, fontWeight: 800, color: '#34D399' }}>100%</span>
-              <span style={{ ...T.body, fontSize: 11, color: '#34D399' }}>Committed</span>
-            </div>
+            {/* Table footer — persistent committed allocation summary */}
+            {(() => {
+              const committedTotal    = Object.values(allocations).reduce((s, v) => s + v, 0);
+              const committedPct      = Math.round(committedTotal * 100);
+              const committedOk       = Math.abs(committedTotal - 1) < 0.015;
+              const committedDelta    = Math.round((1 - committedTotal) * 100);
+              const committedColor    = committedOk ? '#34D399' : Math.abs(committedTotal - 1) < 0.08 ? '#FBBF24' : '#F87171';
+
+              return (
+                <div style={{
+                  padding: '10px 20px',
+                  borderTop: '1px solid var(--border-subtle)',
+                  backgroundColor: 'var(--bg-root)',
+                  borderRadius: drawerChannel ? '0' : '0 0 12px 12px',
+                  display: 'flex', alignItems: 'center', gap: 12,
+                }}>
+                  <span style={{ ...T.overline, fontSize: 9 }}>Total allocated</span>
+                  <div style={{ flex: 1, height: 3, borderRadius: 2, backgroundColor: 'var(--border-strong)', overflow: 'hidden' }}>
+                    <div style={{
+                      height: '100%',
+                      width: `${Math.min(committedPct, 100)}%`,
+                      backgroundColor: committedColor, opacity: 0.55, borderRadius: 2,
+                      transition: 'width 120ms ease, background-color 150ms ease',
+                    }} />
+                  </div>
+                  <span style={{ ...T.num, fontSize: 12, fontWeight: 800, color: committedColor }}>
+                    {committedPct}%
+                  </span>
+                  {committedOk ? (
+                    <span style={{ ...T.body, fontSize: 11, color: committedColor }}>Valid</span>
+                  ) : (
+                    <>
+                      <span style={{ ...T.body, fontSize: 11, color: committedColor }}>
+                        {committedDelta > 0 ? `${committedDelta}pp unassigned` : `${Math.abs(committedDelta)}pp over`}
+                      </span>
+                      <button
+                        onClick={() => setAllocations(
+                          Object.fromEntries(
+                            Object.entries(allocations).map(([k, v]) => [k, committedTotal > 0 ? v / committedTotal : v])
+                          )
+                        )}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 4,
+                          fontFamily: 'Outfit', fontSize: 10, fontWeight: 700,
+                          padding: '4px 9px', borderRadius: 5, cursor: 'pointer',
+                          border: `1px solid ${committedColor}44`,
+                          backgroundColor: `${committedColor}0D`,
+                          color: committedColor,
+                        }}
+                      >
+                        <Scale size={10} /> Rebalance
+                      </button>
+                    </>
+                  )}
+                </div>
+              );
+            })()}
           </div>
 
           {/* ── Edit Drawer ──────────────────────────────────────────────── */}
@@ -506,7 +534,7 @@ export default function CurrentMix() {
               display: 'flex',
               flexDirection: 'column',
               alignSelf: 'stretch',
-              borderRadius: '0 0 14px 0',
+              borderRadius: '0 0 12px 0',
             }}>
 
               {/* Drawer header */}
@@ -524,12 +552,8 @@ export default function CurrentMix() {
                   }} />
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{
-                    fontFamily: 'Outfit', fontSize: 9, fontWeight: 700,
-                    color: dSt.color, backgroundColor: dSt.bg,
-                    padding: '3px 8px', borderRadius: 4,
-                    textTransform: 'uppercase', letterSpacing: '0.04em',
-                  }}>
+                  <span style={badgeStyle(dSt.color)}>
+                    <span style={dotStyle(dSt.color)} />
                     {dSt.label}
                   </span>
                   <button
@@ -667,11 +691,8 @@ export default function CurrentMix() {
                     </p>
                     {dDiag.reasonCode && dDiag.reasonCode !== 'Efficient allocation' && (
                       <span style={{
-                        display: 'inline-block', marginTop: 8,
-                        fontFamily: 'Outfit', fontSize: 9, fontWeight: 700,
-                        color: dSt.color, backgroundColor: dSt.bg,
-                        padding: '3px 8px', borderRadius: 4,
-                        textTransform: 'uppercase', letterSpacing: '0.05em',
+                        ...badgeStyle(dSt.color),
+                        marginTop: 8,
                       }}>
                         {dDiag.reasonCode}
                       </span>
@@ -686,7 +707,7 @@ export default function CurrentMix() {
                 borderTop: '1px solid var(--border-strong)',
                 flexShrink: 0,
                 backgroundColor: 'var(--bg-root)',
-                borderRadius: '0 0 14px 0',
+                borderRadius: '0 0 12px 0',
               }}>
                 {/* Portfolio total */}
                 <div style={{ marginBottom: 12 }}>
@@ -804,16 +825,12 @@ export default function CurrentMix() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {flaggedChannels.slice(0, 3).map(ch => {
                 const d  = diagnosis[ch];
-                const st = STATUS_META[(d?.status || 'efficient') as keyof typeof STATUS_META];
+                const st = STATUS_META[(d?.status || 'efficient') as StatusKey];
                 return (
                   <div key={ch} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <ChannelName channel={ch} style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }} />
-                    <span style={{
-                      fontFamily: 'Outfit', fontSize: 8, fontWeight: 700,
-                      color: st.color, backgroundColor: st.bg,
-                      padding: '2px 6px', borderRadius: 3,
-                      textTransform: 'uppercase' as const, letterSpacing: '0.04em',
-                    }}>
+                    <span style={badgeStyle(st.color)}>
+                      <span style={dotStyle(st.color)} />
                       {st.label}
                     </span>
                   </div>
@@ -847,7 +864,7 @@ export default function CurrentMix() {
         ...CARD,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         gap: 20, flexWrap: 'wrap' as const,
-        borderColor: 'rgba(232,128,58,0.18)', padding: '18px 22px',
+        borderColor: 'rgba(232,128,58,0.22)',
       }}>
         <div>
           <p style={{ fontFamily: 'Outfit', fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>

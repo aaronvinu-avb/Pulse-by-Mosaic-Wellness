@@ -23,38 +23,11 @@ import {
   Zap, Activity,
 } from 'lucide-react';
 import type { ChannelRecommendation } from '@/lib/optimizerTypes';
-
-// ── Design tokens ─────────────────────────────────────────────────────────────
-
-const T = {
-  overline: {
-    fontFamily: 'Outfit' as const, fontSize: 10, fontWeight: 600 as const,
-    color: 'var(--text-muted)', textTransform: 'uppercase' as const,
-    letterSpacing: '0.09em', margin: 0,
-  },
-  body: {
-    fontFamily: 'Plus Jakarta Sans' as const, fontSize: 13,
-    fontWeight: 400 as const, color: 'var(--text-muted)', margin: 0, lineHeight: 1.6,
-  },
-  label: {
-    fontFamily: 'Outfit' as const, fontSize: 11, fontWeight: 600 as const,
-    color: 'var(--text-muted)', margin: 0,
-  },
-  num: {
-    fontFamily: 'Outfit' as const,
-    fontVariantNumeric: 'tabular-nums' as const,
-  },
-};
-
-const CARD: React.CSSProperties = {
-  padding: '18px 22px',
-  border: '1px solid var(--border-subtle)',
-  borderRadius: 12,
-  backgroundColor: 'var(--bg-card)',
-};
+import { T, CARD, badgeStyle, dotStyle, ACTION_META } from './_shared/ui';
 
 // Table column template — shared between header and rows
-const COL = '18px minmax(130px,1fr) 66px 66px 76px 90px 90px 90px';
+//   chevron · channel · current % · rec'd % · change · rec'd ROAS · action
+const COL = '18px minmax(140px,1fr) 78px 86px 88px 88px 82px';
 
 // Confidence tier styling
 const CONFIDENCE_META = {
@@ -63,18 +36,8 @@ const CONFIDENCE_META = {
   exploratory: { label: 'Exploratory',        color: '#94a3b8', bg: 'rgba(148,163,184,0.10)' },
 } as const;
 
-// Outlook badge per channel recommendation
-function outlookMeta(rec: ChannelRecommendation): { label: string; color: string; bg: string } {
-  const large = Math.abs(rec.deltaPct) >= 3;
-  if (rec.direction === 'increase')
-    return large
-      ? { label: 'Scale',            color: '#34D399', bg: 'rgba(52,211,153,0.10)'   }
-      : { label: 'Cautious increase',color: '#86EFAC', bg: 'rgba(134,239,172,0.08)'  };
-  if (rec.direction === 'decrease')
-    return large
-      ? { label: 'Reduce',           color: '#F87171', bg: 'rgba(248,113,113,0.10)'  }
-      : { label: 'Cautious reduce',  color: '#FCA5A5', bg: 'rgba(252,165,165,0.08)'  };
-  return { label: 'Hold',            color: '#94a3b8', bg: 'rgba(148,163,184,0.09)'  };
+function actionMeta(rec: ChannelRecommendation) {
+  return ACTION_META[rec.direction];
 }
 
 function deltaColor(delta: number): string {
@@ -128,17 +91,20 @@ export default function RecommendedMix() {
     <div style={{ maxWidth: 1200, display: 'flex', flexDirection: 'column', gap: 20 }}>
 
       {/* ── A. Page Header ────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, minWidth: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <div>
           <h1 style={{
             fontFamily: 'Outfit', fontSize: 26, fontWeight: 800,
-            color: 'var(--text-primary)', letterSpacing: '-0.03em', margin: 0, flexShrink: 0,
+            color: 'var(--text-primary)', letterSpacing: '-0.03em', margin: 0,
           }}>
             Recommended Mix
           </h1>
-          <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-            Tuned efficiency · diminishing returns · stability controls
-          </span>
+          <p style={{
+            fontFamily: 'Plus Jakarta Sans', fontSize: 13, fontWeight: 400,
+            color: 'var(--text-secondary)', margin: '5px 0 0', lineHeight: 1.5,
+          }}>
+            Optimized allocation based on tuned efficiency and diminishing returns.
+          </p>
         </div>
 
         {/* Apply action */}
@@ -149,7 +115,7 @@ export default function RecommendedMix() {
             padding: '9px 16px', borderRadius: 9,
             background: 'linear-gradient(135deg, #E8803A, #FBBF24)',
             color: '#000', fontFamily: 'Outfit', fontSize: 12, fontWeight: 700,
-            border: 'none', cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap',
+            border: 'none', cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap', marginTop: 2,
           }}
         >
           <Sparkles size={13} /> Apply This Mix
@@ -253,12 +219,7 @@ export default function RecommendedMix() {
           <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
             <ArrowRight size={18} color="rgba(232,128,58,0.6)" />
             {!nearOptimal && (
-              <span style={{
-                fontFamily: 'Outfit', fontSize: 10, fontWeight: 700,
-                color: upliftSign ? '#34D399' : '#F87171',
-                backgroundColor: upliftSign ? 'rgba(52,211,153,0.08)' : 'rgba(248,113,113,0.08)',
-                padding: '3px 8px', borderRadius: 5, whiteSpace: 'nowrap',
-              }}>
+              <span style={badgeStyle(upliftSign ? '#34D399' : '#F87171')}>
                 {upliftSign ? '+' : ''}{uplift.upliftPct.toFixed(1)}%
               </span>
             )}
@@ -288,13 +249,10 @@ export default function RecommendedMix() {
 
           {/* Increases */}
           <div style={{ ...CARD, borderColor: 'rgba(52,211,153,0.18)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
               <TrendingUp size={13} color="#34D399" />
               <p style={{ ...T.overline, color: '#34D399' }}>Increase Budget</p>
             </div>
-            <p style={{ ...T.body, fontSize: 12, marginBottom: 16 }}>
-              These channels have room to scale at higher spend — their tuned efficiency and marginal returns support additional allocation.
-            </p>
             {uplift.topIncreases.length === 0 ? (
               <p style={{ ...T.body, fontSize: 12, fontStyle: 'italic' }}>No increases recommended.</p>
             ) : uplift.topIncreases.map(r => {
@@ -318,13 +276,10 @@ export default function RecommendedMix() {
 
           {/* Reductions */}
           <div style={{ ...CARD, borderColor: 'rgba(248,113,113,0.18)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
               <TrendingDown size={13} color="#F87171" />
               <p style={{ ...T.overline, color: '#F87171' }}>Reduce Budget</p>
             </div>
-            <p style={{ ...T.body, fontSize: 12, marginBottom: 16 }}>
-              These channels show saturation pressure or weaker marginal returns at current spend levels — reallocating their budget improves overall portfolio efficiency.
-            </p>
             {uplift.topReductions.length === 0 ? (
               <p style={{ ...T.body, fontSize: 12, fontStyle: 'italic' }}>No reductions recommended.</p>
             ) : uplift.topReductions.map(r => {
@@ -351,30 +306,33 @@ export default function RecommendedMix() {
       {/* ── E. Recommended Allocation Table ──────────────────────────────── */}
       <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 12, overflow: 'hidden', backgroundColor: 'var(--bg-card)' }}>
 
-        {/* Toolbar */}
-        <div style={{ padding: '16px 22px 13px', borderBottom: '1px solid var(--border-subtle)' }}>
-          <p style={{ ...T.overline, fontSize: 10, marginBottom: 3 }}>Full channel comparison</p>
-          <p style={{ ...T.body, fontSize: 12 }}>
-            All channels with current and recommended allocations. Click any row for detailed rationale.
+        {/* Toolbar — tight */}
+        <div style={{
+          padding: '14px 22px',
+          borderBottom: '1px solid var(--border-subtle)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+        }}>
+          <p style={{ ...T.overline, fontSize: 10 }}>Full channel comparison</p>
+          <p style={{ ...T.body, fontSize: 11, color: 'var(--text-muted)' }}>
+            {sortedChannels.length} channels · click a row for detail
           </p>
         </div>
 
         {/* Column headers */}
         <div style={{
           display: 'grid', gridTemplateColumns: COL,
-          padding: '8px 22px', gap: 8,
+          padding: '8px 22px', gap: 10,
           backgroundColor: 'var(--bg-root)',
           borderBottom: '1px solid var(--border-subtle)',
         }}>
           {[
-            { h: '',              align: 'left'   },
-            { h: 'Channel',       align: 'left'   },
-            { h: 'Current',       align: 'right'  },
-            { h: "Rec'd",         align: 'right'  },
-            { h: 'Change',        align: 'center' },
-            { h: "Rec'd Spend",   align: 'right'  },
-            { h: "Rec'd Revenue", align: 'right'  },
-            { h: 'Outlook',       align: 'center' },
+            { h: '',            align: 'left'   },
+            { h: 'Channel',     align: 'left'   },
+            { h: 'Current',     align: 'right'  },
+            { h: 'Recommended', align: 'right'  },
+            { h: 'Change',      align: 'center' },
+            { h: "Rec'd ROAS",  align: 'right'  },
+            { h: 'Action',      align: 'center' },
           ].map(({ h, align }, i) => (
             <span key={i} style={{ ...T.overline, fontSize: 9, textAlign: align as React.CSSProperties['textAlign'] }}>{h}</span>
           ))}
@@ -382,28 +340,35 @@ export default function RecommendedMix() {
 
         {/* Rows */}
         {sortedChannels.map(ch => {
-          const color     = CHANNEL_COLORS[CHANNELS.indexOf(ch) % CHANNEL_COLORS.length];
-          const rec       = recommendations[ch];
-          const curRow    = currentPlan.channels[ch];
-          const recRow    = optimizedPlan.channels[ch];
-          const expl      = explanation[ch];
-          const isOpen    = expandedRows.has(ch);
-          const outlook   = rec ? outlookMeta(rec) : { label: 'Hold', color: '#94a3b8', bg: 'rgba(148,163,184,0.09)' };
-          const delta     = rec?.deltaPct ?? 0;
-          const dColor    = deltaColor(delta);
+          const color    = CHANNEL_COLORS[CHANNELS.indexOf(ch) % CHANNEL_COLORS.length];
+          const rec      = recommendations[ch];
+          const curRow   = currentPlan.channels[ch];
+          const recRow   = optimizedPlan.channels[ch];
+          const expl     = explanation[ch];
+          const isOpen   = expandedRows.has(ch);
+          const action   = rec ? actionMeta(rec) : { label: 'Hold' as const, color: '#94a3b8' };
+          const delta    = rec?.deltaPct ?? 0;
+          const dColor   = deltaColor(delta);
 
-          const DirIcon   = delta > 0.5 ? TrendingUp : delta < -0.5 ? TrendingDown : Minus;
+          // Channel-level ROAS under the recommended allocation
+          const recROAS  = recRow && recRow.spend > 0 ? recRow.revenue / recRow.spend : 0;
+
+          const DirIcon  = delta > 0.5 ? TrendingUp : delta < -0.5 ? TrendingDown : Minus;
 
           return (
             <div key={ch} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-              {/* Main row */}
+              {/* Main row — summary only */}
               <div
                 onClick={() => toggleRow(ch)}
                 style={{
                   display: 'grid', gridTemplateColumns: COL,
-                  padding: '12px 22px', gap: 8, alignItems: 'center',
+                  padding: '11px 22px', gap: 10, alignItems: 'center',
                   cursor: 'pointer', userSelect: 'none',
+                  transition: 'background-color 120ms ease',
+                  backgroundColor: isOpen ? 'var(--bg-root)' : 'transparent',
                 }}
+                onMouseEnter={e => { if (!isOpen) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.015)'; }}
+                onMouseLeave={e => { if (!isOpen) e.currentTarget.style.backgroundColor = 'transparent'; }}
               >
                 {/* Chevron */}
                 <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -414,48 +379,39 @@ export default function RecommendedMix() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
                   <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: color, flexShrink: 0 }} />
                   <ChannelName channel={ch} style={{
-                    fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: 600,
+                    fontFamily: 'Plus Jakarta Sans', fontSize: 13, fontWeight: 600,
                     color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                   }} />
                 </div>
 
                 {/* Current % */}
-                <p style={{ ...T.num, fontSize: 12, color: 'var(--text-secondary)', margin: 0, textAlign: 'right' }}>
+                <p style={{ ...T.num, fontSize: 12, color: 'var(--text-muted)', margin: 0, textAlign: 'right' }}>
                   {(curRow?.allocationPct || 0).toFixed(1)}%
                 </p>
 
-                {/* Recommended % */}
-                <p style={{ ...T.num, fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: 0, textAlign: 'right' }}>
+                {/* Recommended % — emphasized */}
+                <p style={{ ...T.num, fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: 0, textAlign: 'right' }}>
                   {(rec?.recommendedPct || 0).toFixed(1)}%
                 </p>
 
-                {/* Delta */}
+                {/* Change — quiet direction indicator */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                  <DirIcon size={11} color={dColor} />
+                  <DirIcon size={11} color={dColor} strokeWidth={2.25} />
                   <span style={{ ...T.num, fontSize: 12, fontWeight: 700, color: dColor }}>
                     {delta >= 0 ? '+' : ''}{delta.toFixed(1)}pp
                   </span>
                 </div>
 
-                {/* Recommended spend */}
-                <p style={{ ...T.num, fontSize: 12, color: 'var(--text-secondary)', margin: 0, textAlign: 'right' }}>
-                  {formatINRCompact(recRow?.periodSpend || 0)}
+                {/* Recommended ROAS */}
+                <p style={{ ...T.num, fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', margin: 0, textAlign: 'right' }}>
+                  {recROAS > 0 ? `${recROAS.toFixed(2)}x` : '—'}
                 </p>
 
-                {/* Recommended revenue */}
-                <p style={{ ...T.num, fontSize: 12, fontWeight: 700, color, margin: 0, textAlign: 'right' }}>
-                  {formatINRCompact(recRow?.periodRevenue || 0)}
-                </p>
-
-                {/* Outlook badge */}
+                {/* Action chip */}
                 <div style={{ display: 'flex', justifyContent: 'center' }}>
-                  <span style={{
-                    fontFamily: 'Outfit', fontSize: 9, fontWeight: 700, letterSpacing: '0.04em',
-                    color: outlook.color, backgroundColor: outlook.bg,
-                    padding: '4px 9px', borderRadius: 5,
-                    textTransform: 'uppercase', whiteSpace: 'nowrap',
-                  }}>
-                    {outlook.label}
+                  <span style={badgeStyle(action.color)}>
+                    <span style={dotStyle(action.color)} />
+                    {action.label}
                   </span>
                 </div>
               </div>
@@ -464,19 +420,19 @@ export default function RecommendedMix() {
               {isOpen && (
                 <div style={{
                   padding: '4px 22px 18px',
-                  borderTop: `1px solid ${outlook.color}1E`,
+                  borderTop: `1px solid ${action.color}1E`,
                   backgroundColor: 'var(--bg-root)',
                 }}>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginTop: 14 }}>
 
-                    {/* Allocation detail */}
+                    {/* Allocation & spend detail */}
                     <div style={{ padding: '13px 14px', backgroundColor: 'var(--bg-card)', borderRadius: 9, border: '1px solid var(--border-subtle)' }}>
-                      <p style={{ ...T.overline, fontSize: 9, marginBottom: 10 }}>Allocation shift</p>
+                      <p style={{ ...T.overline, fontSize: 9, marginBottom: 10 }}>Allocation & spend</p>
                       {[
-                        { k: 'Current allocation', v: `${(rec?.currentPct || 0).toFixed(1)}%` },
-                        { k: 'Recommended',        v: `${(rec?.recommendedPct || 0).toFixed(1)}%` },
-                        { k: 'Monthly spend (rec)',v: formatINRCompact(recRow?.spend || 0) },
-                        { k: 'Monthly spend (cur)',v: formatINRCompact(curRow?.spend || 0) },
+                        { k: 'Current allocation',     v: `${(rec?.currentPct || 0).toFixed(1)}%` },
+                        { k: 'Recommended',            v: `${(rec?.recommendedPct || 0).toFixed(1)}%` },
+                        { k: 'Monthly spend (rec)',   v: formatINRCompact(recRow?.spend || 0) },
+                        { k: "Rec'd period revenue",  v: formatINRCompact(recRow?.periodRevenue || 0) },
                       ].map(({ k, v }) => (
                         <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}>
                           <span style={{ ...T.body, fontSize: 11 }}>{k}</span>
@@ -509,30 +465,37 @@ export default function RecommendedMix() {
                               <span style={{ ...T.num, fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>{v}</span>
                             </div>
                           ))}
-                          <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: 5 }}>
-                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                              <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'Outfit', fontSize: 9, fontWeight: 600, color: expl.efficiencyConfidence >= 0.7 ? '#34D399' : expl.efficiencyConfidence >= 0.38 ? '#FBBF24' : '#94a3b8' }}>
-                                <Zap size={9} />
-                                {expl.efficiencyConfidence >= 0.7 ? 'Strong signal' : expl.efficiencyConfidence >= 0.38 ? 'Moderate signal' : 'Thin data'}
+                          <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border-subtle)', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                            {(() => {
+                              const c = expl.efficiencyConfidence >= 0.7 ? '#34D399'
+                                      : expl.efficiencyConfidence >= 0.38 ? '#FBBF24'
+                                      : '#94a3b8';
+                              const label = expl.efficiencyConfidence >= 0.7 ? 'Strong signal'
+                                          : expl.efficiencyConfidence >= 0.38 ? 'Moderate signal'
+                                          : 'Thin data';
+                              return (
+                                <span style={badgeStyle(c)}>
+                                  <Zap size={9} /> {label}
+                                </span>
+                              );
+                            })()}
+                            {expl.isHighVolatility && (
+                              <span style={badgeStyle('#F87171')}>
+                                <Activity size={9} /> High Risk
                               </span>
-                              {expl.isHighVolatility && (
-                                <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'Outfit', fontSize: 9, fontWeight: 600, color: '#FBBF24' }}>
-                                  <Activity size={9} /> High volatility
-                                </span>
-                              )}
-                              {expl.isSaturated && (
-                                <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'Outfit', fontSize: 9, fontWeight: 600, color: '#F87171' }}>
-                                  <ShieldAlert size={9} /> Saturation
-                                </span>
-                              )}
-                            </div>
+                            )}
+                            {expl.isSaturated && (
+                              <span style={badgeStyle('#F87171')}>
+                                <ShieldAlert size={9} /> Saturated
+                              </span>
+                            )}
                           </div>
                         </>
                       ) : <p style={T.body}>No signal data available.</p>}
                     </div>
 
                     {/* Rationale */}
-                    <div style={{ padding: '13px 14px', backgroundColor: 'var(--bg-card)', borderRadius: 9, border: `1px solid ${outlook.color}22` }}>
+                    <div style={{ padding: '13px 14px', backgroundColor: 'var(--bg-card)', borderRadius: 9, border: `1px solid ${action.color}22` }}>
                       <p style={{ ...T.overline, fontSize: 9, marginBottom: 10 }}>Why this change</p>
                       <p style={{ ...T.body, fontSize: 12, lineHeight: 1.65, color: 'var(--text-secondary)' }}>
                         {rec?.explanation || `No significant change — holding at current allocation.`}
@@ -541,10 +504,11 @@ export default function RecommendedMix() {
                         <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 10 }}>
                           {rec!.reasonCodes.map(code => (
                             <span key={code} style={{
-                              fontFamily: 'Outfit', fontSize: 9, fontWeight: 600,
+                              fontFamily: 'Outfit', fontSize: 10, fontWeight: 600,
                               color: 'var(--text-muted)', backgroundColor: 'var(--bg-root)',
                               border: '1px solid var(--border-subtle)',
-                              padding: '3px 8px', borderRadius: 4, letterSpacing: '0.03em',
+                              padding: '4px 9px', borderRadius: 999,
+                              letterSpacing: '0.02em', whiteSpace: 'nowrap',
                             }}>
                               {code}
                             </span>
@@ -564,12 +528,8 @@ export default function RecommendedMix() {
       <div style={{ ...CARD }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
           <p style={{ ...T.overline }}>Impact Summary</p>
-          <span style={{
-            fontFamily: 'Outfit', fontSize: 9, fontWeight: 700,
-            color: confMeta.color, backgroundColor: confMeta.bg,
-            padding: '3px 9px', borderRadius: 4,
-            textTransform: 'uppercase', letterSpacing: '0.06em',
-          }}>
+          <span style={badgeStyle(confMeta.color)}>
+            <span style={dotStyle(confMeta.color)} />
             {confMeta.label}
           </span>
         </div>

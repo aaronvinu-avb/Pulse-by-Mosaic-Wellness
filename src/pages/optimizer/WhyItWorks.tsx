@@ -17,40 +17,12 @@ import { CHANNELS, CHANNEL_COLORS } from '@/lib/mockData';
 import { ChannelName } from '@/components/ChannelName';
 import {
   ArrowRight, ArrowLeft, TrendingUp, TrendingDown, Minus,
-  Activity, Zap, Shield, Clock, ChevronRight,
+  Activity, Shield, Clock,
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
-
-// ── Design tokens ─────────────────────────────────────────────────────────────
-
-const T = {
-  overline: {
-    fontFamily: 'Outfit' as const, fontSize: 10, fontWeight: 600 as const,
-    color: 'var(--text-muted)', textTransform: 'uppercase' as const,
-    letterSpacing: '0.09em', margin: 0,
-  },
-  body: {
-    fontFamily: 'Plus Jakarta Sans' as const, fontSize: 13,
-    fontWeight: 400 as const, color: 'var(--text-muted)', margin: 0, lineHeight: 1.65,
-  },
-  label: {
-    fontFamily: 'Outfit' as const, fontSize: 11, fontWeight: 600 as const,
-    color: 'var(--text-muted)', margin: 0,
-  },
-  num: {
-    fontFamily: 'Outfit' as const,
-    fontVariantNumeric: 'tabular-nums' as const,
-  },
-};
-
-const CARD: React.CSSProperties = {
-  padding: '18px 22px',
-  border: '1px solid var(--border-subtle)',
-  borderRadius: 12,
-  backgroundColor: 'var(--bg-card)',
-};
+import { T, CARD, badgeStyle, dotStyle } from './_shared/ui';
 
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const DOW_SHORT   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -107,18 +79,19 @@ export default function WhyItWorks() {
     <div style={{ maxWidth: 1200, display: 'flex', flexDirection: 'column', gap: 20 }}>
 
       {/* ── A. Page Header ────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
+      <div>
         <h1 style={{
           fontFamily: 'Outfit', fontSize: 26, fontWeight: 800,
           color: 'var(--text-primary)', letterSpacing: '-0.03em', margin: 0,
         }}>
           Why It Works
         </h1>
-        <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>
-          {Math.round(totalHistoricalMonths)}mo history
-          {dataRange ? ` · ${dataRange.min} – ${dataRange.max}` : ''}
-          {' · '}{dataSource === 'api' ? 'Live' : dataSource === 'cached' ? 'Cached' : 'Sample data'}
-        </span>
+        <p style={{
+          fontFamily: 'Plus Jakarta Sans', fontSize: 13, fontWeight: 400,
+          color: 'var(--text-secondary)', margin: '5px 0 0', lineHeight: 1.5,
+        }}>
+          Understand the signals and logic behind the recommendation.
+        </p>
       </div>
 
       {/* ── B. How the Optimizer Thinks ──────────────────────────────────── */}
@@ -168,21 +141,33 @@ export default function WhyItWorks() {
             </div>
           ))}
         </div>
+        <p style={{
+          fontFamily: 'Plus Jakarta Sans', fontSize: 11,
+          color: 'var(--text-muted)', margin: '10px 0 0', lineHeight: 1,
+        }}>
+          Fitted from {Math.round(totalHistoricalMonths)} months of history
+          {dataRange ? ` · ${dataRange.min} – ${dataRange.max}` : ''}
+          {' · '}{dataSource === 'api' ? 'Live' : dataSource === 'cached' ? 'Cached' : 'Sample data'}
+        </p>
       </div>
 
       {/* ── C. Raw vs Tuned Signals ───────────────────────────────────────── */}
       <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 12, overflow: 'hidden', backgroundColor: 'var(--bg-card)' }}>
-        <div style={{ padding: '18px 24px 14px', borderBottom: '1px solid var(--border-subtle)' }}>
-          <p style={{ ...T.overline, marginBottom: 4 }}>Raw vs tuned efficiency signals</p>
-          <p style={{ ...T.body, fontSize: 12 }}>
-            The optimizer doesn't use raw historical averages directly. Each channel's signal is adjusted to reduce the influence of outliers, sparse periods, and high-variance months.
+        <div style={{
+          padding: '14px 22px',
+          borderBottom: '1px solid var(--border-subtle)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+        }}>
+          <p style={{ ...T.overline, fontSize: 10 }}>Raw vs tuned efficiency signals</p>
+          <p style={{ ...T.body, fontSize: 11, color: 'var(--text-muted)' }}>
+            Outliers and thin periods are smoothed before allocation
           </p>
         </div>
 
         {/* Table header */}
         <div style={{
           display: 'grid', gridTemplateColumns: 'minmax(130px,1fr) 80px 80px 80px 1fr',
-          padding: '8px 24px', gap: 8,
+          padding: '8px 22px', gap: 10,
           backgroundColor: 'var(--bg-root)',
           borderBottom: '1px solid var(--border-subtle)',
         }}>
@@ -204,12 +189,12 @@ export default function WhyItWorks() {
           return (
             <div key={ch} style={{
               display: 'grid', gridTemplateColumns: 'minmax(130px,1fr) 80px 80px 80px 1fr',
-              padding: '11px 24px', gap: 8, alignItems: 'center',
+              padding: '11px 22px', gap: 10, alignItems: 'center',
               borderBottom: '1px solid var(--border-subtle)',
             }}>
               {/* Channel */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                <div style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: color, flexShrink: 0 }} />
+                <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: color, flexShrink: 0 }} />
                 <ChannelName channel={ch} style={{
                   fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: 600,
                   color: 'var(--text-primary)',
@@ -275,20 +260,40 @@ export default function WhyItWorks() {
           ))}
         </div>
 
-        {/* Channel selector */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
-          <p style={{ ...T.overline, fontSize: 9 }}>Channel view:</p>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {/* Channel selector — clean filter bar, visually separated from chart card */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+          marginBottom: 22,
+          padding: '10px 14px',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: 10,
+          backgroundColor: 'var(--bg-card)',
+        }}>
+          <p style={{ ...T.overline, fontSize: 9 }}>Channel view</p>
+          <div style={{ width: 1, height: 16, backgroundColor: 'var(--border-subtle)' }} />
+          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
             {CHANNELS.map((ch, i) => {
-              const col = CHANNEL_COLORS[i % CHANNEL_COLORS.length];
+              const col      = CHANNEL_COLORS[i % CHANNEL_COLORS.length];
+              const isActive = selectedChannel === ch;
               return (
-                <button key={ch} onClick={() => setSelectedChannel(ch)} style={{
-                  fontFamily: 'Outfit', fontSize: 10, fontWeight: 600,
-                  padding: '5px 11px', borderRadius: 7, cursor: 'pointer', transition: '100ms',
-                  border: selectedChannel === ch ? `1px solid ${col}` : '1px solid var(--border-subtle)',
-                  backgroundColor: selectedChannel === ch ? `${col}18` : 'transparent',
-                  color: selectedChannel === ch ? col : 'var(--text-muted)',
-                }}>
+                <button
+                  key={ch}
+                  onClick={() => setSelectedChannel(ch)}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    fontFamily: 'Outfit', fontSize: 11, fontWeight: 600,
+                    padding: '5px 11px', borderRadius: 7, cursor: 'pointer',
+                    transition: 'background-color 120ms, color 120ms, border-color 120ms',
+                    border: isActive ? `1px solid ${col}88` : '1px solid var(--border-subtle)',
+                    backgroundColor: isActive ? 'var(--bg-root)' : 'transparent',
+                    color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
+                  }}
+                >
+                  <span style={{
+                    width: 6, height: 6, borderRadius: '50%',
+                    backgroundColor: col,
+                    opacity: isActive ? 1 : 0.45,
+                  }} />
                   {ch}
                 </button>
               );
@@ -324,29 +329,54 @@ export default function WhyItWorks() {
               </div>
             </div>
             {(expl.saturationCurve?.length || 0) > 1 ? (
-              <ResponsiveContainer width="100%" height={240}>
-                <LineChart data={expl.saturationCurve} margin={{ top: 0, right: 16, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" />
-                  <XAxis
-                    dataKey="spend"
-                    tickFormatter={v => `₹${(v / 1000).toFixed(0)}K`}
-                    tick={{ fontFamily: 'Outfit', fontSize: 9, fill: 'var(--text-muted)' }}
-                  />
-                  <YAxis
-                    tickFormatter={v => `${v.toFixed(1)}x`}
-                    tick={{ fontFamily: 'Outfit', fontSize: 9, fill: 'var(--text-muted)' }}
-                  />
-                  <Tooltip
-                    formatter={(v: number) => [`${v.toFixed(2)}x ROAS`, 'Return']}
-                    labelFormatter={v => `Spend: ₹${(Number(v) / 1000).toFixed(0)}K/mo`}
-                    contentStyle={{
-                      fontFamily: 'Outfit', fontSize: 11,
-                      backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 8,
-                    }}
-                  />
-                  <Line type="monotone" dataKey="roas" stroke={chColor} strokeWidth={2} dot={{ r: 3, fill: chColor, strokeWidth: 0 }} />
-                </LineChart>
-              </ResponsiveContainer>
+              <div style={{
+                backgroundColor: 'var(--bg-root)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: 10,
+                padding: '14px 10px 8px',
+              }}>
+                <ResponsiveContainer width="100%" height={230}>
+                  <LineChart data={expl.saturationCurve} margin={{ top: 4, right: 14, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="2 4" stroke="var(--border-subtle)" strokeOpacity={0.55} vertical={false} />
+                    <XAxis
+                      dataKey="spend"
+                      tickFormatter={v => `₹${(v / 1000).toFixed(0)}K`}
+                      tick={{ fontFamily: 'Outfit', fontSize: 10, fill: 'var(--text-secondary)' }}
+                      axisLine={{ stroke: 'var(--border-subtle)' }}
+                      tickLine={{ stroke: 'var(--border-subtle)' }}
+                    />
+                    <YAxis
+                      tickFormatter={v => `${v.toFixed(1)}x`}
+                      tick={{ fontFamily: 'Outfit', fontSize: 10, fill: 'var(--text-secondary)' }}
+                      axisLine={{ stroke: 'var(--border-subtle)' }}
+                      tickLine={{ stroke: 'var(--border-subtle)' }}
+                    />
+                    <Tooltip
+                      cursor={{ stroke: 'var(--border-strong)', strokeDasharray: '3 3' }}
+                      formatter={(v: number) => [`${v.toFixed(2)}x ROAS`, 'Return']}
+                      labelFormatter={v => `Spend · ₹${(Number(v) / 1000).toFixed(0)}K/mo`}
+                      contentStyle={{
+                        fontFamily: 'Outfit', fontSize: 11,
+                        backgroundColor: 'var(--bg-card)',
+                        border: '1px solid var(--border-strong)',
+                        borderRadius: 8,
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+                      }}
+                      labelStyle={{ color: 'var(--text-secondary)', fontWeight: 600 }}
+                      itemStyle={{ color: 'var(--text-primary)' }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="roas"
+                      stroke={chColor}
+                      strokeWidth={1.75}
+                      dot={{ r: 2.5, fill: chColor, strokeWidth: 0 }}
+                      activeDot={{ r: 4, fill: chColor, stroke: 'var(--bg-card)', strokeWidth: 2 }}
+                      isAnimationActive={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
             ) : (
               <p style={{ ...T.body, fontSize: 12, fontStyle: 'italic' }}>
                 Insufficient historical data points to render a curve for this channel.
@@ -358,7 +388,7 @@ export default function WhyItWorks() {
 
       {/* ── E. Timing Effects ─────────────────────────────────────────────── */}
       {expl && (
-        <div>
+        <div style={{ marginTop: 6 }}>
           <p style={{ ...T.overline, marginBottom: 6 }}>Timing effects · {selectedChannel}</p>
           <p style={{ ...T.body, fontSize: 13, marginBottom: 16, color: 'var(--text-secondary)' }}>
             Timing effects show how channel performance varies by month and day of week. Where the signal is strong, the optimizer weights planning periods accordingly.
@@ -367,7 +397,7 @@ export default function WhyItWorks() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
 
             {/* Seasonality */}
-            <div style={{ ...CARD }}>
+            <div style={{ ...CARD, padding: '18px 22px 20px' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
                 <div>
                   <p style={{ ...T.overline, marginBottom: 5 }}>Monthly seasonality</p>
@@ -378,51 +408,59 @@ export default function WhyItWorks() {
                         + `${MONTH_NAMES[expl.peakMonth]} is the peak month (+${Math.round(expl.peakBoost * 100)}% above annual average).`}
                   </p>
                 </div>
-                <span style={{
-                  fontFamily: 'Outfit', fontSize: 9, fontWeight: 700,
-                  color: expl.seasonalityStrength === 'strong' ? '#34D399' : expl.seasonalityStrength === 'moderate' ? '#FBBF24' : '#94a3b8',
-                  backgroundColor: expl.seasonalityStrength === 'strong' ? 'rgba(52,211,153,0.1)' : expl.seasonalityStrength === 'moderate' ? 'rgba(251,191,36,0.1)' : 'rgba(148,163,184,0.1)',
-                  padding: '3px 8px', borderRadius: 4,
-                  textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap', flexShrink: 0,
-                }}>
-                  {expl.seasonalityStrength} signal
-                </span>
+                {(() => {
+                  const s = expl.seasonalityStrength;
+                  const c = s === 'strong' ? '#34D399' : s === 'moderate' ? '#FBBF24' : '#94a3b8';
+                  const label = s === 'strong' ? 'Strong signal' : s === 'moderate' ? 'Moderate signal' : 'Weak signal';
+                  return (
+                    <span style={badgeStyle(c)}>
+                      <span style={dotStyle(c)} />
+                      {label}
+                    </span>
+                  );
+                })()}
               </div>
 
-              {/* Bar chart with raw (dimmer) and tuned (bright) overlay */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 3 }}>
+              {/* Monthly bars — properly contained, no absolute positioning */}
+              <div style={{
+                display: 'flex', gap: 4, alignItems: 'flex-end', height: 80,
+                padding: '0 2px',
+              }}>
                 {(expl.seasonalityIndex || []).map((idx, m) => {
-                  const raw  = expl.rawSeasonalityIndex?.[m] ?? idx;
                   const isPeak = m === expl.peakMonth;
-                  const barH = Math.max(8, Math.min(100, idx * 65));
-                  const rawH = Math.max(8, Math.min(100, raw * 65));
+                  const barH   = Math.max(10, Math.min(100, idx * 65));
                   return (
-                    <div key={m} style={{ textAlign: 'center' }}>
-                      <div style={{ height: 56, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', gap: 1 }}>
-                        {/* Raw bar (background, dimmer) */}
-                        <div style={{
-                          position: 'absolute',
-                          width: '100%', height: `${rawH}%`,
-                          backgroundColor: `${chColor}20`,
-                          borderRadius: '2px 2px 0 0',
-                        }} />
-                        {/* Tuned bar (foreground) */}
-                        <div style={{
-                          width: '100%',
-                          height: `${barH}%`,
-                          backgroundColor: isPeak ? chColor : `${chColor}55`,
-                          borderRadius: '2px 2px 0 0',
-                        }} />
-                      </div>
+                    <div key={m} style={{
+                      flex: 1, textAlign: 'center', height: '100%',
+                      display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
+                    }}>
+                      <div style={{
+                        backgroundColor: isPeak ? chColor : `${chColor}44`,
+                        borderRadius: '3px 3px 0 0', height: `${barH}%`,
+                      }} />
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Month labels */}
+              <div style={{ display: 'flex', gap: 4, marginTop: 6, padding: '0 2px' }}>
+                {(expl.seasonalityIndex || []).map((idx, m) => {
+                  const isPeak = m === expl.peakMonth;
+                  return (
+                    <div key={m} style={{ flex: 1, textAlign: 'center' }}>
                       <p style={{
-                        fontFamily: 'Outfit', fontSize: 8,
+                        fontFamily: 'Outfit', fontSize: 9,
                         fontWeight: isPeak ? 700 : 400,
                         color: isPeak ? chColor : 'var(--text-muted)',
-                        marginTop: 4, margin: '4px 0 0',
+                        margin: 0,
                       }}>
                         {MONTH_NAMES[m]}
                       </p>
-                      <p style={{ fontFamily: 'Outfit', fontSize: 8, color: 'var(--text-muted)', margin: '2px 0 0' }}>
+                      <p style={{
+                        fontFamily: 'Outfit', fontSize: 8,
+                        color: 'var(--text-muted)', margin: '2px 0 0',
+                        fontVariantNumeric: 'tabular-nums',
+                      }}>
                         {idx.toFixed(2)}
                       </p>
                     </div>
@@ -438,7 +476,7 @@ export default function WhyItWorks() {
             </div>
 
             {/* Day of week */}
-            <div style={{ ...CARD }}>
+            <div style={{ ...CARD, padding: '18px 22px 20px' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
                 <div>
                   <p style={{ ...T.overline, marginBottom: 5 }}>Day-of-week pattern</p>
@@ -451,36 +489,54 @@ export default function WhyItWorks() {
                           : `Best day: ${DOW_SHORT[expl.bestDay]}.`)}
                   </p>
                 </div>
-                <span style={{
-                  fontFamily: 'Outfit', fontSize: 9, fontWeight: 700,
-                  color: expl.dowEffectStrength === 'strong' ? '#34D399' : expl.dowEffectStrength === 'moderate' ? '#FBBF24' : '#94a3b8',
-                  backgroundColor: expl.dowEffectStrength === 'strong' ? 'rgba(52,211,153,0.1)' : expl.dowEffectStrength === 'moderate' ? 'rgba(251,191,36,0.1)' : 'rgba(148,163,184,0.1)',
-                  padding: '3px 8px', borderRadius: 4,
-                  textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap', flexShrink: 0,
-                }}>
-                  {expl.dowEffectStrength} signal
-                </span>
+                {(() => {
+                  const s = expl.dowEffectStrength;
+                  const c = s === 'strong' ? '#34D399' : s === 'moderate' ? '#FBBF24' : '#94a3b8';
+                  const label = s === 'strong' ? 'Strong signal' : s === 'moderate' ? 'Moderate signal' : 'Weak signal';
+                  return (
+                    <span style={badgeStyle(c)}>
+                      <span style={dotStyle(c)} />
+                      {label}
+                    </span>
+                  );
+                })()}
               </div>
 
-              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', height: 80 }}>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end', height: 80, padding: '0 2px' }}>
                 {(expl.dowIndex || []).map((idx, d) => {
                   const isBest = d === expl.bestDay;
                   const barH   = Math.max(10, Math.min(100, idx * 65));
                   return (
-                    <div key={d} style={{ flex: 1, textAlign: 'center', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+                    <div key={d} style={{
+                      flex: 1, height: '100%',
+                      display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
+                    }}>
                       <div style={{
                         backgroundColor: isBest ? chColor : `${chColor}44`,
                         borderRadius: '3px 3px 0 0', height: `${barH}%`,
                       }} />
+                    </div>
+                  );
+                })}
+              </div>
+              {/* DOW labels */}
+              <div style={{ display: 'flex', gap: 6, marginTop: 6, padding: '0 2px' }}>
+                {(expl.dowIndex || []).map((idx, d) => {
+                  const isBest = d === expl.bestDay;
+                  return (
+                    <div key={d} style={{ flex: 1, textAlign: 'center' }}>
                       <p style={{
                         fontFamily: 'Outfit', fontSize: 9,
                         fontWeight: isBest ? 700 : 400,
                         color: isBest ? chColor : 'var(--text-muted)',
-                        margin: '4px 0 0',
+                        margin: 0,
                       }}>
                         {DOW_SHORT[d]}
                       </p>
-                      <p style={{ fontFamily: 'Outfit', fontSize: 8, color: 'var(--text-muted)', margin: '2px 0 0' }}>
+                      <p style={{
+                        fontFamily: 'Outfit', fontSize: 8, color: 'var(--text-muted)',
+                        margin: '2px 0 0', fontVariantNumeric: 'tabular-nums',
+                      }}>
                         {idx.toFixed(2)}
                       </p>
                     </div>
@@ -513,13 +569,8 @@ export default function WhyItWorks() {
               <p style={{ ...T.num, fontSize: 40, fontWeight: 900, color: confMeta.color, letterSpacing: '-0.04em', margin: 0, lineHeight: 1 }}>
                 {portfolioPct}%
               </p>
-              <span style={{
-                fontFamily: 'Outfit', fontSize: 10, fontWeight: 700,
-                color: confMeta.color, backgroundColor: confMeta.bg,
-                padding: '3px 9px', borderRadius: 4,
-                textTransform: 'uppercase', letterSpacing: '0.06em',
-                marginBottom: 4,
-              }}>
+              <span style={{ ...badgeStyle(confMeta.color), marginBottom: 4 }}>
+                <span style={dotStyle(confMeta.color)} />
                 {confMeta.label}
               </span>
             </div>
@@ -570,19 +621,13 @@ export default function WhyItWorks() {
                     {conf.text} ({barW}%)
                   </p>
                   {ex.isHighVolatility ? (
-                    <span style={{
-                      display: 'flex', alignItems: 'center', gap: 4,
-                      fontFamily: 'Outfit', fontSize: 9, fontWeight: 600, color: '#FBBF24',
-                      backgroundColor: 'rgba(251,191,36,0.09)', padding: '2px 7px', borderRadius: 4,
-                    }}>
-                      <Activity size={8} /> Volatile
+                    <span style={badgeStyle('#F87171')}>
+                      <Activity size={9} /> High Risk
                     </span>
                   ) : (
-                    <span style={{
-                      fontFamily: 'Outfit', fontSize: 9, fontWeight: 600, color: '#34D399',
-                      backgroundColor: 'rgba(52,211,153,0.09)', padding: '2px 7px', borderRadius: 4,
-                    }}>
-                      Stable
+                    <span style={badgeStyle('#34D399')}>
+                      <span style={dotStyle('#34D399')} />
+                      On Track
                     </span>
                   )}
                 </div>
@@ -602,13 +647,10 @@ export default function WhyItWorks() {
 
           {/* Scale up */}
           <div style={{ ...CARD, borderColor: 'rgba(52,211,153,0.2)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
               <TrendingUp size={13} color="#34D399" />
-              <p style={{ ...T.overline, color: '#34D399' }}>Scale up</p>
+              <p style={{ ...T.overline, color: '#34D399' }}>Scale</p>
             </div>
-            <p style={{ ...T.body, fontSize: 12, marginBottom: 14 }}>
-              These channels have room to grow — their tuned efficiency and marginal return profile supports higher allocation.
-            </p>
             {increases.length === 0 ? (
               <p style={{ ...T.body, fontSize: 12, fontStyle: 'italic' }}>No channels recommended for increase.</p>
             ) : increases.map(ch => {
@@ -631,13 +673,10 @@ export default function WhyItWorks() {
 
           {/* Hold */}
           <div style={{ ...CARD, borderColor: 'rgba(148,163,184,0.2)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
               <Minus size={13} color="#94a3b8" />
-              <p style={{ ...T.overline, color: '#94a3b8' }}>Hold position</p>
+              <p style={{ ...T.overline, color: '#94a3b8' }}>Hold</p>
             </div>
-            <p style={{ ...T.body, fontSize: 12, marginBottom: 14 }}>
-              These channels are close to their efficient range — the optimizer sees no strong reason to move them significantly.
-            </p>
             {holds.length === 0 ? (
               <p style={{ ...T.body, fontSize: 12, fontStyle: 'italic' }}>No channels at hold position.</p>
             ) : holds.map(ch => {
@@ -646,7 +685,8 @@ export default function WhyItWorks() {
                 <div key={ch} style={{ paddingBottom: 8, marginBottom: 8, borderBottom: '1px solid var(--border-subtle)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <ChannelName channel={ch} style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }} />
-                    <span style={{ fontFamily: 'Outfit', fontSize: 10, fontWeight: 600, color: '#94a3b8', backgroundColor: 'rgba(148,163,184,0.09)', padding: '2px 8px', borderRadius: 4 }}>
+                    <span style={badgeStyle('#94a3b8')}>
+                      <span style={dotStyle('#94a3b8')} />
                       Hold
                     </span>
                   </div>
@@ -660,13 +700,10 @@ export default function WhyItWorks() {
 
           {/* Scale back */}
           <div style={{ ...CARD, borderColor: 'rgba(248,113,113,0.2)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
               <TrendingDown size={13} color="#F87171" />
-              <p style={{ ...T.overline, color: '#F87171' }}>Scale back</p>
+              <p style={{ ...T.overline, color: '#F87171' }}>Reduce</p>
             </div>
-            <p style={{ ...T.body, fontSize: 12, marginBottom: 14 }}>
-              These channels are receiving more budget than their current marginal return justifies. Reducing their share frees budget for better opportunities.
-            </p>
             {decreases.length === 0 ? (
               <p style={{ ...T.body, fontSize: 12, fontStyle: 'italic' }}>No channels recommended for reduction.</p>
             ) : decreases.map(ch => {
