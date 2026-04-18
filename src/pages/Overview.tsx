@@ -149,15 +149,15 @@ export default function Overview() {
                 fontFamily: 'Outfit', fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 6,
                 backgroundColor: dataSource === 'api' ? 'rgba(52,211,153,0.12)' : 
                                dataSource === 'cached' ? 'rgba(96,165,250,0.12)' : 
-                               'rgba(251,191,36,0.15)',
+                               'rgba(155,148,144,0.12)',
                 color: dataSource === 'api' ? '#34D399' : 
                        dataSource === 'cached' ? '#60A5FA' : 
-                       '#FBBF24',
+                       'var(--text-muted)',
                 textTransform: 'uppercase', letterSpacing: '0.08em',
               }}>
                 {dataSource === 'api' ? 'LIVE API' : 
                  dataSource === 'cached' ? 'LOCAL CACHE' : 
-                 'MOCK DATA'}
+                 'DEMO DATA'}
               </span>
             )}
           </h1>

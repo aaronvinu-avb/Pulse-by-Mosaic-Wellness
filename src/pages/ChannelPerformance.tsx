@@ -147,7 +147,7 @@ export default function ChannelPerformance() {
                     <span className="flex items-center gap-1">{c.label} <ArrowUpDown className="h-3 w-3" /></span>
                   </th>
                 ))}
-                <th style={{ padding: '12px 16px', fontFamily: 'Outfit', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Trend</th>
+                <th style={{ padding: '10px 16px', textAlign: 'right', cursor: 'pointer', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontFamily: 'Outfit', userSelect: 'none' }}>7-Day ROAS</th>
               </tr>
             </thead>
             <tbody>

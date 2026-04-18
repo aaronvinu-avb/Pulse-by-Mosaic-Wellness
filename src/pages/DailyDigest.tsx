@@ -43,16 +43,17 @@ export default function DailyDigest() {
   if (isLoading) return <DashboardSkeleton />;
 
   const summaryCards = [
-    { label: 'Best Performer Yesterday', value: best?.channel || '-', sub: `ROAS ${best?.roas.toFixed(1)}x`, accent: '#34D399' },
-    { label: 'Worst Performer Yesterday', value: worst?.channel || '-', sub: `ROAS ${worst?.roas.toFixed(1)}x`, accent: '#F87171' },
-    { label: 'Total Yesterday', value: formatINRCompact(totalRevenue), sub: 'combined revenue', accent: '#FB923C' },
+    { label: 'Best Performer', value: best?.channel || '-', sub: `ROAS ${best?.roas.toFixed(1)}x`, accent: '#34D399' },
+    { label: 'Worst Performer', value: worst?.channel || '-', sub: `ROAS ${worst?.roas.toFixed(1)}x`, accent: '#F87171' },
+    { label: 'Total Revenue', value: formatINRCompact(totalRevenue), sub: 'combined across all channels', accent: '#FB923C' },
   ];
 
   return (
     <div className="mobile-page digest-page" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <div>
         <h1 style={{ fontFamily: 'Outfit', fontSize: 28, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.03em', margin: 0 }}>Daily Digest</h1>
-        <p style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>{yesterday}</p>
+        <p style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>Latest Available Data: {yesterday}</p>
+        <p style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Dataset covers Jan 2023 – Dec 2025. Showing most recent date in the dataset.</p>
       </div>
 
       <div className="digest-summary-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
@@ -91,9 +92,15 @@ export default function DailyDigest() {
                 </td>
                 <td style={{ padding: '12px 16px' }}>
                   <span style={{
-                    display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
-                    backgroundColor: row.aboveAvg ? '#34D399' : '#F87171',
-                  }} />
+                    display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 10px',
+                    borderRadius: 999,
+                    backgroundColor: row.aboveAvg ? 'rgba(52,211,153,0.1)' : 'rgba(248,113,113,0.1)',
+                    color: row.aboveAvg ? '#34D399' : '#F87171',
+                    fontFamily: 'Outfit', fontSize: 11, fontWeight: 700,
+                  }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: 'currentColor', display: 'inline-block' }} />
+                    {row.aboveAvg ? 'Above Avg' : 'Below Avg'}
+                  </span>
                 </td>
               </tr>
             ))}

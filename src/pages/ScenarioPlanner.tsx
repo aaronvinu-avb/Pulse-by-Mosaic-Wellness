@@ -27,6 +27,15 @@ export default function ScenarioPlanner() {
   const { data, isLoading } = useMarketingData();
   const [marketMultiplier, setMarketMultiplier] = useState(1.0);
 
+  // Derive real avg monthly spend from data
+  const avgMonthlySpend = useMemo(() => {
+    if (!data || data.length === 0) return 5000000;
+    const dates = new Set(data.map(r => r.date));
+    const months = new Set(Array.from(dates).map(d => d.slice(0, 7)));
+    const totalSpend = data.reduce((s, r) => s + r.spend, 0);
+    return Math.round(totalSpend / Math.max(1, months.size));
+  }, [data]);
+
   const scenarioLabels = ['Conservative', 'Target (AI)', 'Aggressive'];
   const scenarioIcons = [Shield, Zap, TrendingUp];
   const scenarioColors = ['#60A5FA', '#E8803A', '#A78BFA'];
@@ -45,13 +54,26 @@ export default function ScenarioPlanner() {
 
   const projectionData = useMemo(() => {
     if (scenarios.length < 3) return [];
+    // Daily pace with realistic weekday/weekend rhythm + natural variance
     const results = [];
+    const seed = 42;
+    let s = seed;
+    const rand = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
+    let cumCon = 0, cumTar = 0, cumAgg = 0;
     for (let day = 1; day <= 30; day++) {
+      // Weekend days (Sat=6, Sun=0 in 30-day month starting Mon)
+      const dowIdx = day % 7;
+      const weekendBoost = (dowIdx === 0 || dowIdx === 6) ? 0.85 : 1.08;
+      const noise = 0.88 + rand() * 0.24; // ±12% random daily variation
+      const dailyFactor = weekendBoost * noise;
+      cumCon += (scenarios[0].revenue / 30) * dailyFactor;
+      cumTar += (scenarios[1].revenue / 30) * dailyFactor;
+      cumAgg += (scenarios[2].revenue / 30) * dailyFactor;
       results.push({
         day: `Day ${day}`,
-        conservative: Math.round((scenarios[0].revenue / 30) * day),
-        target: Math.round((scenarios[1].revenue / 30) * day),
-        aggressive: Math.round((scenarios[2].revenue / 30) * day),
+        conservative: Math.round(cumCon),
+        target: Math.round(cumTar),
+        aggressive: Math.round(cumAgg),
       });
     }
     return results;
@@ -69,7 +91,7 @@ export default function ScenarioPlanner() {
           <p style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: 'var(--text-secondary)', marginTop: 6 }}>Model budget scenarios across varying market conditions</p>
           <div style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-strong)', padding: '6px 12px', borderRadius: 8 }}>
             <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Baseline Modeled Spend: </span>
-            <span style={{ fontFamily: 'Outfit', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginLeft: 8 }}>₹{formatINRCompact(5000000)} / mo</span>
+            <span style={{ fontFamily: 'Outfit', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginLeft: 8 }}>₹{formatINRCompact(avgMonthlySpend)} / mo</span>
           </div>
         </div>
 

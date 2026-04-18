@@ -70,9 +70,11 @@ export default function BudgetTracker() {
   type ChannelSpendRow = (typeof channelSpends)[number];
 
   const renderChannelRow = (row: ChannelSpendRow) => (
-    <div key={row.channel} style={{
+    <div key={row.channel} style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+    <div style={{
       display: 'grid', gridTemplateColumns: '180px 180px 1fr 120px', alignItems: 'center', gap: 20,
       padding: '16px 20px', borderBottom: '1px solid var(--border-subtle)', backgroundColor: 'transparent',
+      minWidth: 580,
     }}>
       <ChannelName channel={row.channel} style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: 'var(--text-primary)', fontWeight: 600 }} />
       
@@ -103,6 +105,7 @@ export default function BudgetTracker() {
         <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>EOM Proj.</span>
         <span style={{ fontFamily: 'Outfit', fontSize: 14, fontWeight: 700, color: row.status === 'critical' ? '#EF4444' : 'var(--text-primary)' }}>₹{formatINRCompact(row.projectedSpend)}</span>
       </div>
+    </div>
     </div>
   );
 

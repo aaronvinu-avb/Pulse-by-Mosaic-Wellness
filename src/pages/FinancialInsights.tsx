@@ -69,7 +69,7 @@ export default function FinancialInsights() {
       {/* Header */}
       <div>
         <h1 style={{ fontFamily: 'Outfit', fontSize: 26, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
-          Financial Performance
+          Financial Insights
         </h1>
         <p style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
           Measuring the bottom-line efficiency of every marketing rupee. 
@@ -234,7 +234,8 @@ export default function FinancialInsights() {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(13, 1fr)', gap: 8 }}>
+        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(13, 1fr)', gap: 8, minWidth: 760 }}>
           {/* Header Row */}
           <div style={{ gridColumn: 'span 1' }} />
           {Array.from({ length: 12 }).map((_, i) => (
@@ -272,6 +273,7 @@ export default function FinancialInsights() {
               })}
             </div>
           ))}
+        </div>
         </div>
         
         <div style={{ marginTop: 32, padding: '16px 20px', borderRadius: 16, backgroundColor: 'rgba(52, 211, 153, 0.05)', border: '1px solid rgba(52, 211, 153, 0.2)', display: 'flex', gap: 16, alignItems: 'center' }}>
