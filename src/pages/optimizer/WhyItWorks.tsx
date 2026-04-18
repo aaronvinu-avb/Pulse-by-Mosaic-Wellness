@@ -46,9 +46,9 @@ const T = {
 };
 
 const CARD: React.CSSProperties = {
-  padding: '20px 24px',
+  padding: '18px 22px',
   border: '1px solid var(--border-subtle)',
-  borderRadius: 14,
+  borderRadius: 12,
   backgroundColor: 'var(--bg-card)',
 };
 
@@ -104,24 +104,21 @@ export default function WhyItWorks() {
     .sort((a, b) => (recommendations[a]?.deltaPct || 0) - (recommendations[b]?.deltaPct || 0));
 
   return (
-    <div style={{ maxWidth: 1200, display: 'flex', flexDirection: 'column', gap: 28 }}>
+    <div style={{ maxWidth: 1200, display: 'flex', flexDirection: 'column', gap: 20 }}>
 
       {/* ── A. Page Header ────────────────────────────────────────────────── */}
-      <div>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
         <h1 style={{
-          fontFamily: 'Outfit', fontSize: 28, fontWeight: 800,
+          fontFamily: 'Outfit', fontSize: 26, fontWeight: 800,
           color: 'var(--text-primary)', letterSpacing: '-0.03em', margin: 0,
         }}>
           Why It Works
         </h1>
-        <p style={{ ...T.body, marginTop: 6, fontSize: 14, color: 'var(--text-secondary)' }}>
-          Understand the signals, safeguards, and optimization logic behind the recommended mix.
-        </p>
-        <p style={{ ...T.body, fontSize: 12, marginTop: 4, color: 'var(--text-muted)' }}>
-          Fitted from {Math.round(totalHistoricalMonths)} months of history
-          {dataRange ? ` (${dataRange.min} → ${dataRange.max})` : ''}
-          {' · '}Source: {dataSource === 'api' ? 'Live API' : dataSource === 'cached' ? 'Cache' : 'Sample data'}
-        </p>
+        <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+          {Math.round(totalHistoricalMonths)}mo history
+          {dataRange ? ` · ${dataRange.min} – ${dataRange.max}` : ''}
+          {' · '}{dataSource === 'api' ? 'Live' : dataSource === 'cached' ? 'Cached' : 'Sample data'}
+        </span>
       </div>
 
       {/* ── B. How the Optimizer Thinks ──────────────────────────────────── */}
@@ -174,7 +171,7 @@ export default function WhyItWorks() {
       </div>
 
       {/* ── C. Raw vs Tuned Signals ───────────────────────────────────────── */}
-      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 14, overflow: 'hidden', backgroundColor: 'var(--bg-card)' }}>
+      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 12, overflow: 'hidden', backgroundColor: 'var(--bg-card)' }}>
         <div style={{ padding: '18px 24px 14px', borderBottom: '1px solid var(--border-subtle)' }}>
           <p style={{ ...T.overline, marginBottom: 4 }}>Raw vs tuned efficiency signals</p>
           <p style={{ ...T.body, fontSize: 12 }}>
@@ -545,7 +542,7 @@ export default function WhyItWorks() {
           </div>
 
           {/* Per-channel confidence table */}
-          <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 14, overflow: 'hidden', backgroundColor: 'var(--bg-card)' }}>
+          <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 12, overflow: 'hidden', backgroundColor: 'var(--bg-card)' }}>
             <div style={{ padding: '14px 20px 10px', borderBottom: '1px solid var(--border-subtle)' }}>
               <p style={{ ...T.overline, fontSize: 9 }}>Per-channel signal quality</p>
             </div>
@@ -700,17 +697,17 @@ export default function WhyItWorks() {
         borderColor: 'rgba(232,128,58,0.22)',
       }}>
         <div>
-          <p style={{ fontFamily: 'Outfit', fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+          <p style={{ fontFamily: 'Outfit', fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
             How does the model respond to budget changes?
           </p>
-          <p style={{ ...T.body, fontSize: 13, marginTop: 5 }}>
+          <p style={{ ...T.body, fontSize: 12, marginTop: 5 }}>
             Budget Scenarios runs the same engine at different spend levels — showing how revenue and ROAS respond as budget increases or decreases.
           </p>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexShrink: 0 }}>
           <Link to="/optimizer/recommended" style={{
             display: 'inline-flex', alignItems: 'center', gap: 6,
-            padding: '10px 16px', borderRadius: 10,
+            padding: '9px 15px', borderRadius: 9,
             border: '1px solid var(--border-strong)',
             backgroundColor: 'var(--bg-root)', color: 'var(--text-secondary)',
             fontFamily: 'Outfit', fontSize: 12, fontWeight: 600, textDecoration: 'none',
@@ -719,12 +716,12 @@ export default function WhyItWorks() {
           </Link>
           <Link to="/optimizer/scenarios" style={{
             display: 'inline-flex', alignItems: 'center', gap: 8,
-            padding: '11px 20px', borderRadius: 10,
+            padding: '10px 18px', borderRadius: 9,
             background: 'linear-gradient(135deg, #E8803A, #FBBF24)',
             color: '#000', fontFamily: 'Outfit', fontSize: 13, fontWeight: 700,
             textDecoration: 'none', whiteSpace: 'nowrap' as const,
           }}>
-            View Budget Scenarios <ArrowRight size={15} />
+            View Budget Scenarios <ArrowRight size={14} />
           </Link>
         </div>
       </div>

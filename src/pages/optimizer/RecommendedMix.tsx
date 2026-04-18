@@ -47,9 +47,9 @@ const T = {
 };
 
 const CARD: React.CSSProperties = {
-  padding: '20px 24px',
+  padding: '18px 22px',
   border: '1px solid var(--border-subtle)',
-  borderRadius: 14,
+  borderRadius: 12,
   backgroundColor: 'var(--bg-card)',
 };
 
@@ -125,71 +125,68 @@ export default function RecommendedMix() {
   const highVolChannels = CHANNELS.filter(ch => explanation[ch]?.isHighVolatility && recommendations[ch]?.direction === 'increase');
 
   return (
-    <div style={{ maxWidth: 1200, display: 'flex', flexDirection: 'column', gap: 26 }}>
+    <div style={{ maxWidth: 1200, display: 'flex', flexDirection: 'column', gap: 20 }}>
 
       {/* ── A. Page Header ────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-        <div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, minWidth: 0 }}>
           <h1 style={{
-            fontFamily: 'Outfit', fontSize: 28, fontWeight: 800,
-            color: 'var(--text-primary)', letterSpacing: '-0.03em', margin: 0,
+            fontFamily: 'Outfit', fontSize: 26, fontWeight: 800,
+            color: 'var(--text-primary)', letterSpacing: '-0.03em', margin: 0, flexShrink: 0,
           }}>
             Recommended Mix
           </h1>
-          <p style={{ ...T.body, marginTop: 6, fontSize: 14, color: 'var(--text-secondary)' }}>
-            Review the optimized allocation and expected impact before validating the recommendation.
-          </p>
-          <p style={{ ...T.body, fontSize: 12, marginTop: 4, color: 'var(--text-muted)' }}>
-            Based on tuned channel efficiency, diminishing returns, timing effects, and stability controls.
-          </p>
+          <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+            Tuned efficiency · diminishing returns · stability controls
+          </span>
         </div>
 
         {/* Apply action */}
         <button
           onClick={applyRecommendedMix}
           style={{
-            display: 'inline-flex', alignItems: 'center', gap: 8,
-            padding: '11px 20px', borderRadius: 10,
+            display: 'inline-flex', alignItems: 'center', gap: 7,
+            padding: '9px 16px', borderRadius: 9,
             background: 'linear-gradient(135deg, #E8803A, #FBBF24)',
-            color: '#000', fontFamily: 'Outfit', fontSize: 13, fontWeight: 700,
+            color: '#000', fontFamily: 'Outfit', fontSize: 12, fontWeight: 700,
             border: 'none', cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap',
           }}
         >
-          <Sparkles size={14} /> Apply This Mix
+          <Sparkles size={13} /> Apply This Mix
         </button>
       </div>
 
       {/* ── B. Recommendation Summary Strip ─────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
 
         {/* Recommended Revenue */}
-        <div style={{ ...CARD, padding: '18px 20px', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '14px 16px', border: '1px solid var(--border-subtle)', borderRadius: 12, backgroundColor: 'var(--bg-card)', display: 'flex', flexDirection: 'column' }}>
           <p style={{ ...T.overline, fontSize: 9 }}>Recommended Revenue</p>
-          <p style={{ ...T.num, fontWeight: 800, fontSize: 24, color: '#34D399', letterSpacing: '-0.025em', margin: '8px 0 5px' }}>
+          <p style={{ ...T.num, fontWeight: 800, fontSize: 20, color: '#34D399', letterSpacing: '-0.025em', margin: '7px 0 4px' }}>
             {formatINRCompact(optimizedPlan.totalPeriodRevenue)}
           </p>
           <p style={{ ...T.body, fontSize: 11, lineHeight: 1.45, flex: 1 }}>
             Modeled revenue under the optimized allocation
           </p>
-          <div style={{ height: 2, backgroundColor: '#34D399', borderRadius: 1, marginTop: 12, opacity: 0.35 }} />
+          <div style={{ height: 2, backgroundColor: '#34D399', borderRadius: 1, marginTop: 10, opacity: 0.3 }} />
         </div>
 
         {/* Recommended ROAS */}
-        <div style={{ ...CARD, padding: '18px 20px', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '14px 16px', border: '1px solid var(--border-subtle)', borderRadius: 12, backgroundColor: 'var(--bg-card)', display: 'flex', flexDirection: 'column' }}>
           <p style={{ ...T.overline, fontSize: 9 }}>Recommended ROAS</p>
-          <p style={{ ...T.num, fontWeight: 800, fontSize: 24, color: '#E8803A', letterSpacing: '-0.025em', margin: '8px 0 5px' }}>
+          <p style={{ ...T.num, fontWeight: 800, fontSize: 20, color: '#E8803A', letterSpacing: '-0.025em', margin: '7px 0 4px' }}>
             {optimizedPlan.blendedROAS.toFixed(2)}x
           </p>
           <p style={{ ...T.body, fontSize: 11, lineHeight: 1.45, flex: 1 }}>
             Weighted return across the optimized channel mix
           </p>
-          <div style={{ height: 2, backgroundColor: '#E8803A', borderRadius: 1, marginTop: 12, opacity: 0.35 }} />
+          <div style={{ height: 2, backgroundColor: '#E8803A', borderRadius: 1, marginTop: 10, opacity: 0.3 }} />
         </div>
 
         {/* Expected Uplift */}
-        <div style={{ ...CARD, padding: '18px 20px', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '14px 16px', border: '1px solid var(--border-subtle)', borderRadius: 12, backgroundColor: 'var(--bg-card)', display: 'flex', flexDirection: 'column' }}>
           <p style={{ ...T.overline, fontSize: 9 }}>Expected Uplift</p>
-          <p style={{ ...T.num, fontWeight: 800, fontSize: 24, letterSpacing: '-0.025em', margin: '8px 0 5px',
+          <p style={{ ...T.num, fontWeight: 800, fontSize: 20, letterSpacing: '-0.025em', margin: '7px 0 4px',
             color: nearOptimal ? '#94a3b8' : upliftSign ? '#34D399' : '#F87171',
           }}>
             {nearOptimal
@@ -201,28 +198,26 @@ export default function RecommendedMix() {
               ? 'Current mix is near-optimal — minimal revenue gain available'
               : `${upliftSign ? '+' : ''}${formatINRCompact(Math.abs(uplift.revenueOpportunity))} vs current forecast`}
           </p>
-          <div style={{ height: 2, backgroundColor: upliftSign ? '#34D399' : '#F87171', borderRadius: 1, marginTop: 12, opacity: 0.35 }} />
+          <div style={{ height: 2, backgroundColor: upliftSign ? '#34D399' : '#F87171', borderRadius: 1, marginTop: 10, opacity: 0.3 }} />
         </div>
 
         {/* Recommendation Confidence */}
-        <div style={{ ...CARD, padding: '18px 20px', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '14px 16px', border: '1px solid var(--border-subtle)', borderRadius: 12, backgroundColor: 'var(--bg-card)', display: 'flex', flexDirection: 'column' }}>
           <p style={{ ...T.overline, fontSize: 9 }}>Recommendation Confidence</p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '8px 0 5px' }}>
-            <p style={{ ...T.num, fontWeight: 800, fontSize: 22, color: confMeta.color, letterSpacing: '-0.02em', margin: 0 }}>
-              {confMeta.label}
-            </p>
-          </div>
+          <p style={{ ...T.num, fontWeight: 800, fontSize: 16, color: confMeta.color, letterSpacing: '-0.015em', margin: '7px 0 4px', lineHeight: 1.2 }}>
+            {confMeta.label}
+          </p>
           <p style={{ ...T.body, fontSize: 11, lineHeight: 1.45, flex: 1 }}>
             {confidence.note}
           </p>
-          <div style={{ height: 2, backgroundColor: confMeta.color, borderRadius: 1, marginTop: 12, opacity: 0.35 }} />
+          <div style={{ height: 2, backgroundColor: confMeta.color, borderRadius: 1, marginTop: 10, opacity: 0.3 }} />
         </div>
       </div>
 
       {/* Near-optimal notice */}
       {nearOptimal && (
         <div style={{
-          padding: '14px 18px', borderRadius: 10,
+          padding: '13px 16px', borderRadius: 9,
           backgroundColor: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.25)',
           display: 'flex', alignItems: 'flex-start', gap: 12,
         }}>
@@ -239,7 +234,7 @@ export default function RecommendedMix() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 0, alignItems: 'center' }}>
 
           {/* Current column */}
-          <div style={{ padding: '16px 20px', backgroundColor: 'var(--bg-root)', borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
+          <div style={{ padding: '14px 18px', backgroundColor: 'var(--bg-root)', borderRadius: 9, border: '1px solid var(--border-subtle)' }}>
             <p style={{ ...T.overline, fontSize: 9, marginBottom: 14, color: 'var(--text-muted)' }}>Current Mix</p>
             {[
               { k: 'Revenue forecast', v: formatINRCompact(currentPlan.totalPeriodRevenue) },
@@ -270,7 +265,7 @@ export default function RecommendedMix() {
           </div>
 
           {/* Recommended column */}
-          <div style={{ padding: '16px 20px', backgroundColor: 'rgba(52,211,153,0.04)', borderRadius: 10, border: '1px solid rgba(52,211,153,0.18)' }}>
+          <div style={{ padding: '14px 18px', backgroundColor: 'rgba(52,211,153,0.04)', borderRadius: 9, border: '1px solid rgba(52,211,153,0.18)' }}>
             <p style={{ ...T.overline, fontSize: 9, marginBottom: 14, color: '#34D399' }}>Recommended Mix</p>
             {[
               { k: 'Revenue forecast', v: formatINRCompact(optimizedPlan.totalPeriodRevenue), highlight: upliftSign },
@@ -354,7 +349,7 @@ export default function RecommendedMix() {
       )}
 
       {/* ── E. Recommended Allocation Table ──────────────────────────────── */}
-      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 14, overflow: 'hidden', backgroundColor: 'var(--bg-card)' }}>
+      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 12, overflow: 'hidden', backgroundColor: 'var(--bg-card)' }}>
 
         {/* Toolbar */}
         <div style={{ padding: '16px 22px 13px', borderBottom: '1px solid var(--border-subtle)' }}>
@@ -633,17 +628,17 @@ export default function RecommendedMix() {
         borderColor: 'rgba(232,128,58,0.22)',
       }}>
         <div>
-          <p style={{ fontFamily: 'Outfit', fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+          <p style={{ fontFamily: 'Outfit', fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
             Want to understand the reasoning behind this recommendation?
           </p>
-          <p style={{ ...T.body, fontSize: 13, marginTop: 5 }}>
+          <p style={{ ...T.body, fontSize: 12, marginTop: 5 }}>
             Why It Works explains the diminishing returns curves, timing effects, and signal quality that drive each channel's allocation.
           </p>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexShrink: 0 }}>
           <Link to="/optimizer/diagnosis" style={{
             display: 'inline-flex', alignItems: 'center', gap: 6,
-            padding: '10px 16px', borderRadius: 10,
+            padding: '9px 15px', borderRadius: 9,
             border: '1px solid var(--border-strong)',
             backgroundColor: 'var(--bg-root)', color: 'var(--text-secondary)',
             fontFamily: 'Outfit', fontSize: 12, fontWeight: 600, textDecoration: 'none',
@@ -652,12 +647,12 @@ export default function RecommendedMix() {
           </Link>
           <Link to="/optimizer/why" style={{
             display: 'inline-flex', alignItems: 'center', gap: 8,
-            padding: '11px 20px', borderRadius: 10,
+            padding: '10px 18px', borderRadius: 9,
             background: 'linear-gradient(135deg, #E8803A, #FBBF24)',
             color: '#000', fontFamily: 'Outfit', fontSize: 13, fontWeight: 700,
             textDecoration: 'none', whiteSpace: 'nowrap' as const,
           }}>
-            See Why It Works <ArrowRight size={15} />
+            See Why It Works <ArrowRight size={14} />
           </Link>
         </div>
       </div>

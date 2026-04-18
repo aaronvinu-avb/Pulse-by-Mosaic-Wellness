@@ -25,8 +25,8 @@ import { CHANNELS, CHANNEL_COLORS } from '@/lib/mockData';
 import { ChannelName } from '@/components/ChannelName';
 import { Slider } from '@/components/ui/slider';
 import {
-  ArrowRight, TrendingUp, Activity, Minus, Info,
-  ChevronDown, X, RotateCcw, Scale, SlidersHorizontal,
+  ArrowRight, TrendingUp, Activity, Minus,
+  X, RotateCcw, Scale, SlidersHorizontal,
 } from 'lucide-react';
 import type { PlanningPeriod, PlanningMode } from '@/contexts/OptimizerContext';
 
@@ -46,9 +46,9 @@ const T = {
 };
 
 const CARD: React.CSSProperties = {
-  padding: '20px 24px',
+  padding: '18px 22px',
   border: '1px solid var(--border-subtle)',
-  borderRadius: 14,
+  borderRadius: 12,
   backgroundColor: 'var(--bg-card)',
 };
 
@@ -100,9 +100,6 @@ export default function CurrentMix() {
     customEndMonth, setCustomEndMonth,
     allocations, setAllocations,
   } = useOptimizer();
-
-  // ── UI state ────────────────────────────────────────────────────────────────
-  const [showForecastDetails, setShowForecastDetails] = useState(false);
 
   // ── Edit drawer state ────────────────────────────────────────────────────────
   // pendingAllocs mirrors all channel allocations while the drawer is open.
@@ -178,101 +175,75 @@ export default function CurrentMix() {
   const dConf    = dExpl ? confidenceLabel(dExpl.efficiencyConfidence) : { text: '', color: 'var(--text-muted)' };
 
   return (
-    <div style={{ maxWidth: 1200, display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div style={{ maxWidth: 1200, display: 'flex', flexDirection: 'column', gap: 18 }}>
 
-      {/* ── A. Header ─────────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
-        <div>
-          <h1 style={{
-            fontFamily: 'Outfit', fontSize: 26, fontWeight: 800,
-            color: 'var(--text-primary)', letterSpacing: '-0.03em', margin: 0,
-          }}>
-            Current Mix
-          </h1>
-          <p style={{ ...T.body, fontSize: 13, marginTop: 4, color: 'var(--text-secondary)' }}>
-            Adjust and evaluate your current allocation before exploring recommendations.
-          </p>
-        </div>
-        <button
-          onClick={() => setShowForecastDetails(v => !v)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 5,
-            background: 'none', border: '1px solid var(--border-subtle)',
-            borderRadius: 7, padding: '5px 10px', cursor: 'pointer',
-            fontFamily: 'Outfit', fontSize: 10, fontWeight: 600,
-            color: 'var(--text-muted)', whiteSpace: 'nowrap', flexShrink: 0,
-          }}
-        >
-          <Info size={10} />
-          Forecast details
-          <ChevronDown size={9} style={{ transform: showForecastDetails ? 'rotate(180deg)' : 'none', transition: '150ms' }} />
-        </button>
+      {/* ── A. Header — title + inline metadata only ───────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
+        <h1 style={{
+          fontFamily: 'Outfit', fontSize: 26, fontWeight: 800,
+          color: 'var(--text-primary)', letterSpacing: '-0.03em', margin: 0,
+        }}>
+          Current Mix
+        </h1>
+        {/* Compact metadata — right-aligned, low prominence */}
+        <span style={{
+          fontFamily: 'Plus Jakarta Sans', fontSize: 11,
+          color: 'var(--text-muted)', whiteSpace: 'nowrap', flexShrink: 0,
+        }}>
+          {Math.round(totalHistoricalMonths)}mo history
+          {dataRange ? ` · ${dataRange.min} – ${dataRange.max}` : ''}
+          {' · '}{dataSource === 'api' ? 'Live' : dataSource === 'cached' ? 'Cached' : 'Sample data'}
+        </span>
       </div>
 
-      {showForecastDetails && (
-        <div style={{
-          padding: '10px 14px', borderRadius: 9,
-          backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
-          display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'center',
-        }}>
-          {[
-            { k: 'Method',    v: 'Tuned signals · diminishing returns · timing effects' },
-            { k: 'History',   v: `${Math.round(totalHistoricalMonths)} months` },
-            dataRange ? { k: 'Range', v: `${dataRange.min} → ${dataRange.max}` } : null,
-            { k: 'Source',    v: dataSource === 'api' ? 'Live API' : dataSource === 'cached' ? 'Cached' : 'Sample data' },
-            dataUpdatedAt ? { k: 'Updated', v: new Date(dataUpdatedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) } : null,
-          ].filter(Boolean).map(item => item && (
-            <div key={item.k} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              <span style={{ ...T.overline, fontSize: 9 }}>{item.k}</span>
-              <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 12, color: 'var(--text-secondary)' }}>{item.v}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* ── B. Controls ───────────────────────────────────────────────────── */}
+      {/* ── B. Controls — inline strip, no card header text ──────────────── */}
       <div style={{
-        ...CARD, padding: '16px 20px',
+        border: '1px solid var(--border-subtle)', borderRadius: 12,
+        backgroundColor: 'var(--bg-card)',
         display: 'grid',
-        gridTemplateColumns: 'minmax(180px,240px) minmax(160px,220px) auto',
-        gap: 20, alignItems: 'start',
+        gridTemplateColumns: 'minmax(160px, 220px) 1px minmax(140px, 200px) 1px auto',
+        alignItems: 'stretch',
+        overflow: 'hidden',
       }}>
         {/* Budget */}
-        <div>
-          <p style={{ ...T.overline, fontSize: 9, marginBottom: 7 }}>Monthly Budget</p>
+        <div style={{ padding: '14px 18px' }}>
+          <p style={{ ...T.overline, fontSize: 9, marginBottom: 6 }}>Monthly Budget</p>
           <div style={{
-            display: 'flex', alignItems: 'center', gap: 6,
+            display: 'flex', alignItems: 'center', gap: 5,
             backgroundColor: 'var(--bg-root)', border: '1px solid var(--border-strong)',
-            borderRadius: 9, padding: '9px 12px',
+            borderRadius: 8, padding: '8px 11px',
           }}>
-            <span style={{ fontFamily: 'Outfit', fontSize: 14, fontWeight: 700, color: 'var(--text-muted)' }}>₹</span>
+            <span style={{ fontFamily: 'Outfit', fontSize: 13, fontWeight: 700, color: 'var(--text-muted)' }}>₹</span>
             <input
               type="number" value={safeBudget} min={0} step={1000}
               onChange={e => { const v = Number(e.target.value); setBudget(Number.isFinite(v) ? Math.max(0, v) : 0); }}
               onBlur={() => setBudget(b => Math.round(Math.max(0, b) / 1000) * 1000)}
               style={{
                 flex: 1, background: 'transparent', border: 'none', outline: 'none',
-                fontFamily: 'Outfit', fontWeight: 700, fontSize: 16,
+                fontFamily: 'Outfit', fontWeight: 700, fontSize: 15,
                 color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums',
               }}
             />
           </div>
-          <p style={{ ...T.body, fontSize: 11, marginTop: 4 }}>
-            {formatINRCompact(totalPeriodBudget)} over {durationMonths}mo
+          <p style={{ ...T.body, fontSize: 10, marginTop: 4, opacity: 0.7 }}>
+            {formatINRCompact(totalPeriodBudget)} / {durationMonths}mo total
           </p>
         </div>
 
+        {/* Divider */}
+        <div style={{ width: 1, backgroundColor: 'var(--border-subtle)' }} />
+
         {/* Period */}
-        <div>
-          <p style={{ ...T.overline, fontSize: 9, marginBottom: 7 }}>Planning Period</p>
+        <div style={{ padding: '14px 18px' }}>
+          <p style={{ ...T.overline, fontSize: 9, marginBottom: 6 }}>Planning Period</p>
           <select
             value={planningPeriod}
             onChange={e => setPlanningPeriod(e.target.value as PlanningPeriod)}
             style={{
               width: '100%', backgroundColor: 'var(--bg-root)',
-              border: '1px solid var(--border-strong)', borderRadius: 9,
+              border: '1px solid var(--border-strong)', borderRadius: 8,
               color: 'var(--text-primary)', fontFamily: 'Plus Jakarta Sans',
-              fontSize: 13, padding: '9px 12px', outline: 'none',
+              fontSize: 13, padding: '8px 11px', outline: 'none',
             }}
           >
             <option value="1m">1 Month</option>
@@ -282,28 +253,31 @@ export default function CurrentMix() {
             <option value="custom">Custom range</option>
           </select>
           {planningPeriod === 'custom' && (
-            <div style={{ display: 'flex', gap: 6, marginTop: 6, alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 5, marginTop: 6, alignItems: 'center' }}>
               <select value={customStartMonth} onChange={e => setCustomStartMonth(e.target.value)}
-                style={{ flex: 1, backgroundColor: 'var(--bg-root)', border: '1px solid var(--border-strong)', borderRadius: 7, color: 'var(--text-primary)', fontFamily: 'Plus Jakarta Sans', fontSize: 10, padding: '6px 8px', outline: 'none' }}>
+                style={{ flex: 1, backgroundColor: 'var(--bg-root)', border: '1px solid var(--border-strong)', borderRadius: 6, color: 'var(--text-primary)', fontFamily: 'Plus Jakarta Sans', fontSize: 10, padding: '5px 7px', outline: 'none' }}>
                 {TIMELINE_MONTHS.map(m => <option key={m.key} value={m.key}>{MONTH_NAMES[m.month]} {m.year}</option>)}
               </select>
-              <span style={{ ...T.overline, fontSize: 9 }}>to</span>
+              <span style={{ ...T.overline, fontSize: 9 }}>→</span>
               <select value={customEndMonth} onChange={e => setCustomEndMonth(e.target.value)}
-                style={{ flex: 1, backgroundColor: 'var(--bg-root)', border: '1px solid var(--border-strong)', borderRadius: 7, color: 'var(--text-primary)', fontFamily: 'Plus Jakarta Sans', fontSize: 10, padding: '6px 8px', outline: 'none' }}>
+                style={{ flex: 1, backgroundColor: 'var(--bg-root)', border: '1px solid var(--border-strong)', borderRadius: 6, color: 'var(--text-primary)', fontFamily: 'Plus Jakarta Sans', fontSize: 10, padding: '5px 7px', outline: 'none' }}>
                 {TIMELINE_MONTHS.map(m => <option key={m.key} value={m.key}>{MONTH_NAMES[m.month]} {m.year}</option>)}
               </select>
             </div>
           )}
         </div>
 
+        {/* Divider */}
+        <div style={{ width: 1, backgroundColor: 'var(--border-subtle)' }} />
+
         {/* Mode */}
-        <div>
-          <p style={{ ...T.overline, fontSize: 9, marginBottom: 7 }}>Planning Mode</p>
-          <div style={{ display: 'flex', gap: 5 }}>
+        <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <p style={{ ...T.overline, fontSize: 9, marginBottom: 8 }}>Planning Mode</p>
+          <div style={{ display: 'flex', gap: 4 }}>
             {(['conservative', 'target', 'aggressive'] as PlanningMode[]).map(m => (
               <button key={m} onClick={() => setPlanningMode(m)} style={{
-                fontFamily: 'Outfit', fontSize: 11, fontWeight: 600,
-                padding: '8px 11px', borderRadius: 7, cursor: 'pointer', transition: '120ms',
+                fontFamily: 'Outfit', fontSize: 10, fontWeight: 600,
+                padding: '6px 10px', borderRadius: 6, cursor: 'pointer', transition: '120ms',
                 border: planningMode === m ? '1px solid rgba(232,128,58,0.45)' : '1px solid var(--border-subtle)',
                 backgroundColor: planningMode === m ? 'rgba(232,128,58,0.08)' : 'transparent',
                 color: planningMode === m ? '#E8803A' : 'var(--text-muted)',
@@ -312,64 +286,80 @@ export default function CurrentMix() {
               </button>
             ))}
           </div>
-          <p style={{ ...T.body, fontSize: 11, marginTop: 5 }}>
-            {planningMode === 'conservative' ? '0.8× — downside scenario'
-             : planningMode === 'aggressive' ? '1.2× — upside scenario'
-             : '1.0× — baseline forecast'}
-          </p>
         </div>
       </div>
 
       {/* ── C. KPI Strip ──────────────────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
         {[
-          { label: 'Revenue Forecast',   value: formatINRCompact(currentPlan.totalPeriodRevenue), sub: 'Modeled from current allocation',       accent: '#60A5FA' },
-          { label: 'Blended ROAS',       value: `${currentPlan.blendedROAS.toFixed(2)}x`,         sub: 'Weighted return across the mix',          accent: '#E8803A' },
-          { label: 'Monthly Budget',     value: formatINRCompact(monthlyBudget),                   sub: `${durationMonths}mo · ${formatINRCompact(totalPeriodBudget)} total`, accent: '#A78BFA' },
           {
-            label: 'Channels to Review',
-            value: flaggedChannels.length === 0 ? 'All healthy' : `${flaggedChannels.length} / 10`,
-            sub: flaggedChannels.length === 0 ? 'No issues detected'
-              : `${flaggedChannels.slice(0, 2).join(', ')}${flaggedChannels.length > 2 ? ` +${flaggedChannels.length - 2}` : ''} flagged`,
+            label: 'Revenue Forecast',
+            value: formatINRCompact(currentPlan.totalPeriodRevenue),
+            sub: 'Current allocation',
+            accent: '#60A5FA',
+          },
+          {
+            label: 'Blended ROAS',
+            value: `${currentPlan.blendedROAS.toFixed(2)}x`,
+            sub: 'Weighted portfolio return',
+            accent: '#E8803A',
+          },
+          {
+            label: 'Monthly Budget',
+            value: formatINRCompact(monthlyBudget),
+            sub: `${durationMonths}mo · ${formatINRCompact(totalPeriodBudget)} total`,
+            accent: '#A78BFA',
+          },
+          {
+            label: 'To Review',
+            value: flaggedChannels.length === 0 ? 'All on track' : `${flaggedChannels.length} channels`,
+            sub: flaggedChannels.length === 0
+              ? 'No flags detected'
+              : flaggedChannels.slice(0, 2).join(', ') + (flaggedChannels.length > 2 ? ` +${flaggedChannels.length - 2}` : ''),
             accent: flaggedChannels.length === 0 ? '#34D399' : '#FBBF24',
           },
         ].map(kpi => (
-          <div key={kpi.label} style={{ ...CARD, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <div key={kpi.label} style={{
+            padding: '14px 16px',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 12,
+            backgroundColor: 'var(--bg-card)',
+            display: 'flex', flexDirection: 'column',
+          }}>
             <p style={{ ...T.overline, fontSize: 9 }}>{kpi.label}</p>
-            <p style={{ ...T.num, fontWeight: 800, fontSize: 22, color: 'var(--text-primary)', letterSpacing: '-0.025em', margin: '6px 0 4px' }}>
+            <p style={{ ...T.num, fontWeight: 800, fontSize: 20, color: 'var(--text-primary)', letterSpacing: '-0.025em', margin: '7px 0 3px' }}>
               {kpi.value}
             </p>
-            <p style={{ ...T.body, fontSize: 11, lineHeight: 1.4, flex: 1 }}>{kpi.sub}</p>
-            <div style={{ height: 2, backgroundColor: kpi.accent, borderRadius: 1, marginTop: 10, opacity: 0.3 }} />
+            <p style={{ ...T.body, fontSize: 11, lineHeight: 1.35, flex: 1 }}>{kpi.sub}</p>
+            <div style={{ height: 2, backgroundColor: kpi.accent, borderRadius: 1, marginTop: 10, opacity: 0.28 }} />
           </div>
         ))}
       </div>
 
       {/* ── D. Allocation Block ──────────────────────────────────────────────── */}
-      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 14, backgroundColor: 'var(--bg-card)' }}>
+      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 12, backgroundColor: 'var(--bg-card)' }}>
 
         {/* Toolbar */}
         <div style={{
-          padding: '13px 20px',
+          padding: '11px 20px',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           borderBottom: '1px solid var(--border-subtle)',
           borderRadius: '14px 14px 0 0',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <p style={{ fontFamily: 'Outfit', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-              Allocation
-            </p>
-            <span style={{ ...T.body, fontSize: 11 }}>
-              Click <strong style={{ fontFamily: 'Outfit', color: 'var(--text-secondary)' }}>Adjust</strong> on any row to edit
-            </span>
-          </div>
-          {drawerChannel && (
+          <p style={{ fontFamily: 'Outfit', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+            Allocation
+          </p>
+          {drawerChannel ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <div style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: dColor }} />
-              <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>
-                {drawerChannel} — editing
+              <div style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: dColor }} />
+              <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)' }}>
+                Editing {drawerChannel}
               </span>
             </div>
+          ) : (
+            <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: 'var(--text-muted)' }}>
+              Select a row to adjust
+            </span>
           )}
         </div>
 
@@ -768,85 +758,87 @@ export default function CurrentMix() {
         </div>
       </div>
 
-      {/* ── E. Mix Assessment ─────────────────────────────────────────────── */}
-      <div style={{ ...CARD }}>
-        <p style={{ ...T.overline, marginBottom: 16 }}>Mix Assessment</p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
-
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
-              <TrendingUp size={11} color="#34D399" />
-              <p style={{ fontFamily: 'Outfit', fontSize: 11, fontWeight: 600, color: '#34D399', margin: 0 }}>Strongest channels</p>
-            </div>
+      {/* ── E. Mix snapshot — compact insight strip ───────────────────────── */}
+      <div style={{
+        border: '1px solid var(--border-subtle)', borderRadius: 12,
+        backgroundColor: 'var(--bg-card)',
+        display: 'grid',
+        gridTemplateColumns: '1fr 1px 1fr 1px 1fr',
+        overflow: 'hidden',
+      }}>
+        {/* Top performers */}
+        <div style={{ padding: '14px 18px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+            <TrendingUp size={10} color="#34D399" />
+            <p style={{ ...T.overline, fontSize: 9, color: '#34D399' }}>Top performers</p>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {topChannels.map(ch => {
               const ex = explanation[ch];
               const r  = currentPlan.channels[ch];
               return (
-                <div key={ch} style={{ paddingBottom: 7, marginBottom: 7, borderBottom: '1px solid var(--border-subtle)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <ChannelName channel={ch} style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }} />
-                    <span style={{ ...T.num, fontSize: 12, fontWeight: 700, color: '#34D399' }}>
-                      {(ex?.tunedROAS ?? r?.roas ?? 0).toFixed(2)}x
-                    </span>
-                  </div>
-                  <p style={{ ...T.body, fontSize: 11, marginTop: 1 }}>
-                    {(r?.allocationPct ?? 0).toFixed(1)}% · {formatINRCompact(r?.periodRevenue ?? 0)}
-                  </p>
+                <div key={ch} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <ChannelName channel={ch} style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }} />
+                  <span style={{ ...T.num, fontSize: 11, fontWeight: 700, color: '#34D399' }}>
+                    {(ex?.tunedROAS ?? r?.roas ?? 0).toFixed(2)}x
+                  </span>
                 </div>
               );
             })}
           </div>
+        </div>
 
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
-              {flaggedChannels.length > 0
-                ? <Activity size={11} color="#FBBF24" />
-                : <TrendingUp size={11} color="#34D399" />}
-              <p style={{ fontFamily: 'Outfit', fontSize: 11, fontWeight: 600, color: flaggedChannels.length > 0 ? '#FBBF24' : '#34D399', margin: 0 }}>
-                Channels to review
-              </p>
-            </div>
-            {flaggedChannels.length === 0
-              ? <p style={{ ...T.body, fontSize: 12 }}>All channels within efficient ranges.</p>
-              : flaggedChannels.map(ch => {
-                  const d  = diagnosis[ch];
-                  const st = STATUS_META[(d?.status || 'efficient') as keyof typeof STATUS_META];
-                  return (
-                    <div key={ch} style={{ paddingBottom: 7, marginBottom: 7, borderBottom: '1px solid var(--border-subtle)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <ChannelName channel={ch} style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }} />
-                        <span style={{ fontFamily: 'Outfit', fontSize: 9, fontWeight: 700, color: st.color, backgroundColor: st.bg, padding: '2px 7px', borderRadius: 4, textTransform: 'uppercase' as const }}>
-                          {st.label}
-                        </span>
-                      </div>
-                      <p style={{ ...T.body, fontSize: 11, marginTop: 2 }}>{d?.reasonCode}</p>
-                    </div>
-                  );
-                })}
-          </div>
+        <div style={{ width: 1, backgroundColor: 'var(--border-subtle)' }} />
 
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
-              <Minus size={11} color="var(--text-muted)" />
-              <p style={{ fontFamily: 'Outfit', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', margin: 0 }}>Strategic takeaway</p>
-            </div>
-            <p style={{ ...T.body, fontSize: 13, lineHeight: 1.7 }}>
-              {'Current mix is forecast at '}
-              <strong style={{ color: 'var(--text-primary)', fontFamily: 'Outfit' }}>
-                {formatINRCompact(currentPlan.totalPeriodRevenue)}
-              </strong>
-              {' at '}
-              <strong style={{ color: 'var(--text-primary)', fontFamily: 'Outfit' }}>
-                {currentPlan.blendedROAS.toFixed(2)}x
-              </strong>
-              {' ROAS. '}
-              {efficientCount === CHANNELS.length
-                ? `All ${CHANNELS.length} channels are within efficient ranges.`
-                : flaggedChannels.length === 1
-                ? `${CHANNELS.length - 1} channels look healthy; ${flaggedChannels[0]} needs attention.`
-                : `${efficientCount} of ${CHANNELS.length} channels appear balanced — ${flaggedChannels.length} need review.`}
+        {/* Flagged */}
+        <div style={{ padding: '14px 18px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+            <Activity size={10} color={flaggedChannels.length > 0 ? '#FBBF24' : '#34D399'} />
+            <p style={{ ...T.overline, fontSize: 9, color: flaggedChannels.length > 0 ? '#FBBF24' : '#34D399' }}>
+              {flaggedChannels.length > 0 ? `${flaggedChannels.length} flagged` : 'All on track'}
             </p>
           </div>
+          {flaggedChannels.length === 0 ? (
+            <p style={{ ...T.body, fontSize: 12 }}>No channels need immediate attention.</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {flaggedChannels.slice(0, 3).map(ch => {
+                const d  = diagnosis[ch];
+                const st = STATUS_META[(d?.status || 'efficient') as keyof typeof STATUS_META];
+                return (
+                  <div key={ch} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <ChannelName channel={ch} style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }} />
+                    <span style={{
+                      fontFamily: 'Outfit', fontSize: 8, fontWeight: 700,
+                      color: st.color, backgroundColor: st.bg,
+                      padding: '2px 6px', borderRadius: 3,
+                      textTransform: 'uppercase' as const, letterSpacing: '0.04em',
+                    }}>
+                      {st.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div style={{ width: 1, backgroundColor: 'var(--border-subtle)' }} />
+
+        {/* Summary */}
+        <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+            <Minus size={10} color="var(--text-muted)" />
+            <p style={{ ...T.overline, fontSize: 9 }}>Takeaway</p>
+          </div>
+          <p style={{ ...T.body, fontSize: 12, lineHeight: 1.6 }}>
+            {formatINRCompact(currentPlan.totalPeriodRevenue)}
+            {' at '}{currentPlan.blendedROAS.toFixed(2)}x ROAS.
+            {' '}
+            {efficientCount === CHANNELS.length
+              ? 'All channels within range.'
+              : `${efficientCount}/${CHANNELS.length} channels balanced.`}
+          </p>
         </div>
       </div>
 

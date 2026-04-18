@@ -27,7 +27,7 @@ const T = {
   overline: {
     fontFamily: 'Outfit' as const, fontSize: 10, fontWeight: 600 as const,
     color: 'var(--text-muted)', textTransform: 'uppercase' as const,
-    letterSpacing: '0.1em', margin: 0,
+    letterSpacing: '0.09em', margin: 0,
   },
   body: {
     fontFamily: 'Plus Jakarta Sans' as const, fontSize: 13,
@@ -37,12 +37,13 @@ const T = {
     fontFamily: 'Outfit' as const, fontSize: 11, fontWeight: 600 as const,
     color: 'var(--text-muted)', margin: 0,
   },
+  num: { fontFamily: 'Outfit' as const, fontVariantNumeric: 'tabular-nums' as const },
 };
 
 const CARD: React.CSSProperties = {
-  padding: '20px 24px',
+  padding: '18px 22px',
   border: '1px solid var(--border-subtle)',
-  borderRadius: 14,
+  borderRadius: 12,
   backgroundColor: 'var(--bg-card)',
 };
 
@@ -141,40 +142,35 @@ export default function Diagnosis() {
   })();
 
   return (
-    <div style={{ maxWidth: 1200, display: 'flex', flexDirection: 'column', gap: 28 }}>
+    <div style={{ maxWidth: 1200, display: 'flex', flexDirection: 'column', gap: 20 }}>
 
       {/* ── A. Page Header ────────────────────────────────────────────────── */}
-      <div>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
         <h1 style={{
-          fontFamily: 'Outfit', fontSize: 28, fontWeight: 800,
+          fontFamily: 'Outfit', fontSize: 26, fontWeight: 800,
           color: 'var(--text-primary)', letterSpacing: '-0.03em', margin: 0,
         }}>
           Diagnosis
         </h1>
-        <p style={{ ...T.body, marginTop: 6, fontSize: 14, color: 'var(--text-secondary)' }}>
-          Identify where the current allocation is over-weighted, under-scaled, saturated, or at risk.
-        </p>
-        <p style={{ ...T.body, fontSize: 12, marginTop: 5, color: 'var(--text-muted)' }}>
-          Labels are derived from tuned historical signals — not raw daily noise. No AI recommendations are shown on this page.
-        </p>
+        <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+          Labels from tuned signals · current mix only
+        </span>
       </div>
 
       {/* ── B. Channel Health Overview ────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
         {[
           {
             label: 'On Track',
             count: efficientCount,
             color: '#34D399',
-            bg: 'rgba(52,211,153,0.07)',
-            note: 'Allocation close to model-efficient range',
+            note: 'Within model-efficient range',
             Icon: CheckCircle2,
           },
           {
             label: 'Flagged',
             count: flaggedChannels.length,
             color: '#FBBF24',
-            bg: 'rgba(251,191,36,0.07)',
             note: 'Need attention before proceeding',
             Icon: AlertTriangle,
           },
@@ -182,7 +178,6 @@ export default function Diagnosis() {
             label: 'Saturated',
             count: saturatedCount,
             color: '#F87171',
-            bg: 'rgba(248,113,113,0.07)',
             note: 'Marginal ROAS at or below breakeven',
             Icon: TrendingDown,
           },
@@ -190,7 +185,6 @@ export default function Diagnosis() {
             label: 'Over-weighted',
             count: overWeightedChannels.length,
             color: '#FBBF24',
-            bg: 'rgba(251,191,36,0.07)',
             note: 'More budget than efficiency justifies',
             Icon: ShieldAlert,
           },
@@ -198,29 +192,29 @@ export default function Diagnosis() {
             label: 'Under-invested',
             count: underWeightedChannels.length,
             color: '#60A5FA',
-            bg: 'rgba(96,165,250,0.07)',
-            note: 'Efficient but receiving less than benchmark',
+            note: 'Efficient but underfunded',
             Icon: TrendingUp,
           },
         ].map(s => (
           <div key={s.label} style={{
-            ...CARD,
-            padding: '16px 18px',
-            borderColor: `${s.color}22`,
-            backgroundColor: s.bg,
-            display: 'flex', flexDirection: 'column', gap: 0,
+            padding: '14px 16px',
+            border: `1px solid ${s.color}22`,
+            borderRadius: 12,
+            backgroundColor: `${s.color}07`,
+            display: 'flex', flexDirection: 'column',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
               <p style={{ ...T.overline, fontSize: 9, color: s.color }}>{s.label}</p>
-              <s.Icon size={12} color={s.color} />
+              <s.Icon size={11} color={s.color} />
             </div>
             <p style={{
-              fontFamily: 'Outfit', fontWeight: 800, fontSize: 30,
-              color: 'var(--text-primary)', letterSpacing: '-0.025em', margin: '0 0 6px',
+              fontFamily: 'Outfit', fontWeight: 800, fontSize: 20,
+              color: 'var(--text-primary)', letterSpacing: '-0.025em', margin: '0 0 5px',
             }}>
               {s.count}
             </p>
             <p style={{ ...T.body, fontSize: 10, lineHeight: 1.4 }}>{s.note}</p>
+            <div style={{ height: 2, backgroundColor: s.color, borderRadius: 1, marginTop: 10, opacity: 0.28 }} />
           </div>
         ))}
       </div>
@@ -253,7 +247,7 @@ export default function Diagnosis() {
               return (
                 <div key={ch} style={{
                   border: `1px solid ${st.color}2A`,
-                  borderRadius: 10,
+                  borderRadius: 9,
                   overflow: 'hidden',
                   backgroundColor: 'var(--bg-root)',
                 }}>
@@ -512,7 +506,7 @@ export default function Diagnosis() {
       )}
 
       {/* ── E. Diagnosis Matrix ───────────────────────────────────────────── */}
-      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 14, overflow: 'hidden', backgroundColor: 'var(--bg-card)' }}>
+      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 12, overflow: 'hidden', backgroundColor: 'var(--bg-card)' }}>
 
         {/* Table header */}
         <div style={{ padding: '18px 24px 14px' }}>
@@ -763,10 +757,10 @@ export default function Diagnosis() {
         borderColor: 'rgba(232,128,58,0.25)',
       }}>
         <div>
-          <p style={{ fontFamily: 'Outfit', fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+          <p style={{ fontFamily: 'Outfit', fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
             Diagnosis complete. Ready to see the recommended reallocation?
           </p>
-          <p style={{ ...T.body, fontSize: 13, marginTop: 6 }}>
+          <p style={{ ...T.body, fontSize: 12, marginTop: 5 }}>
             The next step shows how the model would redistribute this budget across channels, with per-channel rationale and projected uplift.
           </p>
         </div>
@@ -775,7 +769,7 @@ export default function Diagnosis() {
             to="/optimizer/current-mix"
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
-              padding: '10px 16px', borderRadius: 10,
+              padding: '9px 15px', borderRadius: 9,
               border: '1px solid var(--border-strong)',
               backgroundColor: 'var(--bg-root)', color: 'var(--text-secondary)',
               fontFamily: 'Outfit', fontSize: 12, fontWeight: 600,
@@ -788,13 +782,13 @@ export default function Diagnosis() {
             to="/optimizer/recommended"
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 8,
-              padding: '11px 20px', borderRadius: 10,
+              padding: '10px 18px', borderRadius: 9,
               background: 'linear-gradient(135deg, #E8803A, #FBBF24)',
               color: '#000', fontFamily: 'Outfit', fontSize: 13, fontWeight: 700,
               textDecoration: 'none', whiteSpace: 'nowrap' as const,
             }}
           >
-            See Recommended Mix <ArrowRight size={15} />
+            See Recommended Mix <ArrowRight size={14} />
           </Link>
         </div>
       </div>

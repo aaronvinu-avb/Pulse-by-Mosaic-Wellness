@@ -37,9 +37,9 @@ const T = {
 };
 
 const CARD: React.CSSProperties = {
-  padding: '20px 24px',
+  padding: '18px 22px',
   border: '1px solid var(--border-subtle)',
-  borderRadius: 14,
+  borderRadius: 12,
   backgroundColor: 'var(--bg-card)',
 };
 
@@ -146,27 +146,23 @@ export default function BudgetScenarios() {
   const cautionScenario = scenarios.find(s => s.key === 'aggressive');
 
   return (
-    <div style={{ maxWidth: 1200, display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div style={{ maxWidth: 1200, display: 'flex', flexDirection: 'column', gap: 20 }}>
 
       {/* ── A. Page Header ────────────────────────────────────────────────── */}
-      <div>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
         <h1 style={{
           fontFamily: 'Outfit', fontSize: 26, fontWeight: 800,
           color: 'var(--text-primary)', letterSpacing: '-0.03em', margin: 0,
         }}>
           Budget Scenarios
         </h1>
-        <p style={{ ...T.body, fontSize: 13, marginTop: 5, color: 'var(--text-secondary)' }}>
-          Explore how expected performance and channel allocation change across different budget levels.
-        </p>
-        <p style={{ ...T.body, fontSize: 11, marginTop: 3 }}>
-          Scenarios re-run the optimizer at each budget level · Current: {formatINRCompact(monthlyBudget)}/mo
-          · {durationMonths}mo · {formatINRCompact(totalPeriodBudget)} total
-        </p>
+        <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+          Baseline: {formatINRCompact(monthlyBudget)}/mo · {durationMonths}mo · {formatINRCompact(totalPeriodBudget)} total
+        </span>
       </div>
 
       {/* ── B. Scenario Summary Strip ─────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
         {[
           {
             label:   'Current budget',
@@ -203,7 +199,7 @@ export default function BudgetScenarios() {
             note:    'Best marginal return between tiers',
           },
         ].map(kpi => (
-          <div key={kpi.label} style={{ ...CARD, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <div key={kpi.label} style={{ padding: '14px 16px', border: '1px solid var(--border-subtle)', borderRadius: 12, backgroundColor: 'var(--bg-card)', display: 'flex', flexDirection: 'column', gap: 2 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2 }}>
               {kpi.icon}
               <p style={{ ...T.overline, fontSize: 9 }}>{kpi.label}</p>
@@ -469,7 +465,7 @@ export default function BudgetScenarios() {
               return (
                 <div key={`${n.from}-${n.to}`} style={{
                   flex: '1 1 160px', padding: '14px 16px',
-                  backgroundColor: 'var(--bg-root)', borderRadius: 10,
+                  backgroundColor: 'var(--bg-root)', borderRadius: 9,
                   border: '1px solid var(--border-subtle)',
                 }}>
                   <p style={{ ...T.overline, fontSize: 9, marginBottom: 10 }}>
@@ -552,9 +548,9 @@ export default function BudgetScenarios() {
             </p>
           </div>
           {roasDecline > 0 && (
-            <div style={{ padding: '16px 20px', backgroundColor: 'var(--bg-root)', borderRadius: 10, border: '1px solid var(--border-subtle)', flexShrink: 0, textAlign: 'right' }}>
+            <div style={{ padding: '14px 18px', backgroundColor: 'var(--bg-root)', borderRadius: 9, border: '1px solid var(--border-subtle)', flexShrink: 0, textAlign: 'right' }}>
               <p style={{ ...T.overline, fontSize: 9, marginBottom: 8 }}>ROAS from conservative → aggressive</p>
-              <p style={{ ...T.num, fontSize: 28, fontWeight: 900, color: '#FBBF24', letterSpacing: '-0.04em', margin: 0, lineHeight: 1 }}>
+              <p style={{ ...T.num, fontSize: 22, fontWeight: 900, color: '#FBBF24', letterSpacing: '-0.03em', margin: 0, lineHeight: 1 }}>
                 -{roasDecline}%
               </p>
               <p style={{ ...T.body, fontSize: 11, marginTop: 4 }}>blended efficiency loss</p>
@@ -579,7 +575,7 @@ export default function BudgetScenarios() {
           ].map(block => (
             <div key={block.heading} style={{
               padding: '14px 16px', backgroundColor: 'var(--bg-root)',
-              borderRadius: 10, border: '1px solid var(--border-subtle)',
+              borderRadius: 9, border: '1px solid var(--border-subtle)',
             }}>
               <p style={{ fontFamily: 'Outfit', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 7px' }}>
                 {block.heading}
@@ -627,7 +623,7 @@ export default function BudgetScenarios() {
           ].map(block => (
             <div key={block.heading} style={{
               padding: '14px 16px', backgroundColor: 'var(--bg-root)',
-              borderRadius: 10, border: `1px solid ${block.color}18`,
+              borderRadius: 9, border: `1px solid ${block.color}18`,
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 7 }}>
                 {block.icon}
