@@ -398,7 +398,7 @@ export default function CurrentMix() {
                 { h: 'Allocation', align: 'right'  },
                 { h: 'Spend',      align: 'right'  },
                 { h: 'Revenue',    align: 'right'  },
-                { h: 'ROAS',       align: 'center' },
+                { h: 'Forecast ROAS', align: 'center' },
                 { h: 'Health',     align: 'center' },
                 { h: '',           align: 'center' },
               ].map(({ h, align }, i) => (

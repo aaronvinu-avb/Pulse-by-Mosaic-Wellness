@@ -1,8 +1,7 @@
 import { useMemo, useState } from 'react';
-import { useMarketingData } from '@/hooks/useMarketingData';
+import { useOptimizerModel } from '@/hooks/useOptimizerModel';
 import { DashboardSkeleton } from '@/components/DashboardSkeleton';
-import { ChannelName } from '@/components/ChannelName';
-import { computeBudgetScenarios, computeChannelBaselines, computeTimingEffects } from '@/lib/optimizer/calculations';
+import { computeBudgetScenarios } from '@/lib/optimizer/calculations';
 import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
 import { CHANNELS } from '@/lib/mockData';
 import { DEFAULT_MONTHLY_BUDGET } from '@/contexts/OptimizerContext';
@@ -38,59 +37,47 @@ const BASELINE_BUDGET = DEFAULT_MONTHLY_BUDGET;
 const SCENARIO_BUDGETS = SCENARIO_TIERS.map(t => Math.round(BASELINE_BUDGET * t.multiplier));
 
 export default function ScenarioPlanner() {
-  const { aggregate, globalAggregate, isLoading } = useMarketingData({ includeGlobalAggregate: true });
+  const { isLoading, currentPlan, debug } = useOptimizerModel();
   const [marketMultiplier, setMarketMultiplier] = useState(1.0);
 
   const scenarioLabels = SCENARIO_TIERS.map(t => t.label);
-  const scenarioIcons  = SCENARIO_TIERS.map(t => t.icon);
   const scenarioColors = SCENARIO_TIERS.map(t => t.color);
 
-  const sourceData = globalAggregate ?? aggregate;
-  const baselines = useMemo(
-    () => (sourceData ? computeChannelBaselines(sourceData) : []),
-    [sourceData],
-  );
-  const timingEffects = useMemo(
-    () => (sourceData ? computeTimingEffects(sourceData) : { byChannel: {} }),
-    [sourceData],
-  );
-
-  const historicalAllocationPct = useMemo(() => {
+  const baselines = useMemo(() => debug.baselines || [], [debug.baselines]);
+  const currentAllocationPct = useMemo(() => {
     const out: Record<string, number> = {};
-    if (baselines.length === 0) {
-      const even = 100 / CHANNELS.length;
-      CHANNELS.forEach(ch => {
-        out[ch] = even;
-      });
-      return out;
-    }
-    baselines.forEach(b => {
-      out[b.channel] = b.historicalAllocationPct;
+    CHANNELS.forEach(ch => {
+      out[ch] = currentPlan.channels[ch]?.allocationPct ?? (100 / CHANNELS.length);
     });
     return out;
-  }, [baselines]);
+  }, [currentPlan.channels]);
 
   const rawScenarios = useMemo(
     () => baselines.length > 0
-      ? computeBudgetScenarios(baselines, SCENARIO_BUDGETS, 'target', historicalAllocationPct, {
-          timingEffects,
-          planningMonth: 0,
-        })
+      ? computeBudgetScenarios(baselines, SCENARIO_BUDGETS, 'target', currentAllocationPct)
       : [],
-    [baselines, historicalAllocationPct, timingEffects],
+    [baselines, currentAllocationPct],
   );
+
+  const baselineAlignedScenarios = useMemo(() => {
+    const baselineRevenue = currentPlan.blendedROAS * BASELINE_BUDGET;
+    const alignedBaseline = {
+      budget: BASELINE_BUDGET,
+      allocationsPct: currentAllocationPct,
+      totalRevenue: baselineRevenue,
+      blendedROAS: currentPlan.blendedROAS,
+    };
+    return rawScenarios.map(s => (s.budget === BASELINE_BUDGET ? alignedBaseline : s));
+  }, [rawScenarios, currentAllocationPct, currentPlan.blendedROAS]);
 
   const scenarios = useMemo(
     () =>
-      rawScenarios.map(s => ({
+      baselineAlignedScenarios.map(s => ({
         ...s,
         revenue: s.totalRevenue * marketMultiplier,
-        roas: s.budget > 0 ? (s.totalRevenue * marketMultiplier) / s.budget : 0,
-        fractions: Object.fromEntries(
-          CHANNELS.map(ch => [ch, (s.allocationsPct[ch] || 0) / 100]),
-        ) as Record<string, number>,
+        roas: s.blendedROAS * marketMultiplier,
       })),
-    [rawScenarios, marketMultiplier],
+    [baselineAlignedScenarios, marketMultiplier],
   );
 
   // Forecast chart keeps three representative tracks (lowest / baseline /
@@ -132,7 +119,7 @@ export default function ScenarioPlanner() {
           <h1 style={{ fontFamily: 'Outfit', fontSize: 26, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.03em', lineHeight: 1.2 }}>
             Scenario Planner
           </h1>
-          <p style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: 'var(--text-secondary)', marginTop: 6 }}>Model budget scenarios across varying market conditions</p>
+          <p style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: 'var(--text-secondary)', marginTop: 6 }}>Model budget scenarios across varying market conditions. Baseline mirrors the Current Mix reference.</p>
           <div style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-strong)', padding: '6px 12px', borderRadius: 8 }}>
             <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Baseline Budget: </span>
             <span style={{ fontFamily: 'Outfit', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginLeft: 8, fontVariantNumeric: 'tabular-nums' }}>{formatINRCompact(BASELINE_BUDGET)} / mo</span>

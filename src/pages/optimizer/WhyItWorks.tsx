@@ -13,6 +13,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { DashboardSkeleton } from '@/components/DashboardSkeleton';
 import { useOptimizerModel } from '@/hooks/useOptimizerModel';
+import { formatINRCompact } from '@/lib/formatCurrency';
 import { CHANNELS, CHANNEL_COLORS } from '@/lib/mockData';
 import { ChannelName } from '@/components/ChannelName';
 import {
@@ -53,6 +54,8 @@ function channelConfidenceLabel(score: number): { text: string; color: string } 
 export default function WhyItWorks() {
   const {
     isLoading,
+    currentPlan,
+    monthlyBudget,
     explanation, recommendations, uplift,
     totalHistoricalMonths, dataRange, dataSource,
     debug,
@@ -92,6 +95,16 @@ export default function WhyItWorks() {
         }}>
           Understand the signals and logic behind the recommendation.
         </p>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+          <span style={badgeStyle('#E8803A')}>
+            <span style={dotStyle('#E8803A')} />
+            Blended ROAS (current): {currentPlan.blendedROAS.toFixed(2)}x
+          </span>
+          <span style={badgeStyle('#94a3b8')}>
+            <span style={dotStyle('#94a3b8')} />
+            Monthly budget: {formatINRCompact(monthlyBudget)}
+          </span>
+        </div>
       </div>
 
       {/* ── B. How the Optimizer Thinks ──────────────────────────────────── */}

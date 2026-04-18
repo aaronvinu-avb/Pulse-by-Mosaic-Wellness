@@ -139,7 +139,7 @@ export default function RecommendedMix() {
 
         {/* Recommended ROAS */}
         <div style={{ padding: '14px 16px', border: '1px solid var(--border-subtle)', borderRadius: 12, backgroundColor: 'var(--bg-card)', display: 'flex', flexDirection: 'column' }}>
-          <p style={{ ...T.overline, fontSize: 9 }}>Recommended ROAS</p>
+          <p style={{ ...T.overline, fontSize: 9 }}>Recommended Blended ROAS</p>
           <p style={{ ...T.num, fontWeight: 800, fontSize: 20, color: '#E8803A', letterSpacing: '-0.025em', margin: '7px 0 4px' }}>
             {optimizedPlan.blendedROAS.toFixed(2)}x
           </p>
@@ -331,7 +331,7 @@ export default function RecommendedMix() {
             { h: 'Current',     align: 'right'  },
             { h: 'Recommended', align: 'right'  },
             { h: 'Change',      align: 'center' },
-            { h: "Rec'd ROAS",  align: 'right'  },
+            { h: 'Forecast ROAS', align: 'right'  },
             { h: 'Action',      align: 'center' },
           ].map(({ h, align }, i) => (
             <span key={i} style={{ ...T.overline, fontSize: 9, textAlign: align as React.CSSProperties['textAlign'] }}>{h}</span>

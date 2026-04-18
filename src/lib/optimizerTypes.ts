@@ -75,6 +75,14 @@ export interface ChannelDiagnosis {
   deltaPct: number;
   historicalROAS: number;
   portfolioROAS: number;
+  /** Current monthly spend implied by currentPct and budget */
+  currentSpend: number;
+  /** Lower monthly spend bound of the efficient range */
+  lowerEfficientSpend: number;
+  /** Upper monthly spend bound of the efficient range */
+  upperEfficientSpend: number;
+  /** Monthly spend where marginal ROAS reaches breakeven (~1.0x) */
+  saturationSpend: number;
   marginalROAS: number;
   isSaturated: boolean;
   /** Receiving noticeably more budget than historical baseline */

@@ -73,7 +73,7 @@ function spendPressureLabel(
 export default function Diagnosis() {
   const {
     isLoading, currentPlan, diagnosis, flaggedChannels,
-    overWeightedChannels, underWeightedChannels, portfolioROAS,
+    overWeightedChannels, underWeightedChannels, portfolioROAS, monthlyBudget,
     explanation, historicalFractions,
   } = useOptimizerModel();
 
@@ -140,6 +140,16 @@ export default function Diagnosis() {
         }}>
           See which channels are over-invested, under-invested, or on track.
         </p>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+          <span style={badgeStyle('#E8803A')}>
+            <span style={dotStyle('#E8803A')} />
+            Blended ROAS (current): {currentPlan.blendedROAS.toFixed(2)}x
+          </span>
+          <span style={badgeStyle('#94a3b8')}>
+            <span style={dotStyle('#94a3b8')} />
+            Monthly budget: {formatINRCompact(monthlyBudget)}
+          </span>
+        </div>
       </div>
 
       {/* ── B. Channel Health Overview ────────────────────────────────────── */}
@@ -317,11 +327,20 @@ export default function Diagnosis() {
                           {d && [
                             { k: 'Current allocation', v: `${(row?.allocationPct || 0).toFixed(1)}%` },
                             { k: 'Historical baseline', v: `${histPct}%` },
-                            { k: 'Delta',              v: `${d.deltaPct >= 0 ? '+' : ''}${d.deltaPct.toFixed(0)}pp` },
+                            { k: 'Delta', v: `${d.deltaPct >= 0 ? '+' : ''}${d.deltaPct.toFixed(0)}pp` },
+                            { k: 'Current spend', v: formatINRCompact(d.currentSpend) },
+                            {
+                              k: 'Efficient range',
+                              v: `${formatINRCompact(d.lowerEfficientSpend)} - ${Number.isFinite(d.upperEfficientSpend) ? formatINRCompact(d.upperEfficientSpend) : 'Open-ended'}`,
+                            },
+                            {
+                              k: 'Saturation threshold',
+                              v: Number.isFinite(d.saturationSpend) ? formatINRCompact(d.saturationSpend) : 'Not reached in observed range',
+                            },
                           ].map(({ k, v }) => (
-                            <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}>
+                            <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', gap: 8 }}>
                               <span style={{ ...T.body, fontSize: 11 }}>{k}</span>
-                              <span style={{ fontFamily: 'Outfit', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>{v}</span>
+                              <span style={{ fontFamily: 'Outfit', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', textAlign: 'right' }}>{v}</span>
                             </div>
                           ))}
                           <div style={{ marginTop: 8, borderTop: '1px solid var(--border-subtle)', paddingTop: 8 }}>
@@ -596,14 +615,23 @@ export default function Diagnosis() {
                     {/* Spend & Saturation */}
                     <div style={{ padding: '12px 14px', backgroundColor: 'var(--bg-card)', borderRadius: 9, border: '1px solid var(--border-subtle)' }}>
                       <p style={{ ...T.overline, fontSize: 9, marginBottom: 9 }}>Spend & Saturation</p>
-                      {[
+                      {d && [
                         { k: 'Allocation', v: `${(row?.allocationPct || 0).toFixed(1)}%` },
                         { k: 'Historical', v: `${Math.round((historicalFractions[ch] || 0) * 100)}%` },
+                        { k: 'Current spend', v: formatINRCompact(d.currentSpend) },
+                        {
+                          k: 'Efficient range',
+                          v: `${formatINRCompact(d.lowerEfficientSpend)} - ${Number.isFinite(d.upperEfficientSpend) ? formatINRCompact(d.upperEfficientSpend) : 'Open-ended'}`,
+                        },
+                        {
+                          k: 'Saturation threshold',
+                          v: Number.isFinite(d.saturationSpend) ? formatINRCompact(d.saturationSpend) : 'Not reached in observed range',
+                        },
                         { k: 'Marginal ROAS', v: `${(row?.marginalROAS || 0).toFixed(2)}x` },
                       ].map(({ k, v }) => (
-                        <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+                        <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', gap: 8 }}>
                           <span style={{ ...T.body, fontSize: 11 }}>{k}</span>
-                          <span style={{ fontFamily: 'Outfit', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>{v}</span>
+                          <span style={{ fontFamily: 'Outfit', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', textAlign: 'right' }}>{v}</span>
                         </div>
                       ))}
                       {expl?.isSaturated && (
@@ -657,6 +685,9 @@ export default function Diagnosis() {
                   </div>
                   <p style={{ ...T.body, fontSize: 11, marginTop: 2 }}>
                     {(row?.allocationPct || 0).toFixed(1)}% allocated · {formatINRCompact(row?.periodRevenue || 0)} forecast
+                  </p>
+                  <p style={{ ...T.body, fontSize: 10, marginTop: 2 }}>
+                    Tuned ROAS signal: {(expl?.tunedROAS ?? row?.roas ?? 0).toFixed(2)}x
                   </p>
                 </div>
               );
