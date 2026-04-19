@@ -2,7 +2,7 @@ import { CHANNELS, type MarketingRecord } from '@/lib/mockData';
 import { getAggregatedState, type AggregatedState } from '@/lib/calculations';
 import { DEFAULT_MONTHLY_BUDGET } from '@/contexts/OptimizerContext';
 
-export type OptimizerPlanningMode = 'conservative' | 'target' | 'aggressive';
+export type OptimizerPlanningMode = 'conservative' | 'base' | 'aggressive';
 export type ChannelHealthStatus = 'under-scaled' | 'over-scaled' | 'saturated' | 'efficient';
 export type SignalStrength = 'strong' | 'moderate' | 'weak';
 
@@ -558,7 +558,7 @@ export function computeRecommendedMix(
 ): RecommendedMixOutput {
   const currentAllocationPct = normalizePct(currentAllocationPctInput);
   const activeChannels = baselines.filter(b => b.activeMonths > 0).map(b => b.channel);
-  const explorationFactor = mode === 'conservative' ? 0.3 : mode === 'aggressive' ? 1.0 : 0.6;
+  const explorationFactor = mode === 'conservative' ? 0.25 : mode === 'aggressive' ? 1.0 : 0.6;
 
   const totalHistSpend = baselines.reduce((s, b) => s + b.totalSpend, 0);
   const totalHistRev = baselines.reduce((s, b) => s + b.totalRevenue, 0);

@@ -51,7 +51,7 @@ describe('optimizer final calculation verification', () => {
     const recommended = computeRecommendedMix(
       baselines,
       monthlyBudget,
-      'target',
+      'base',
       historicalAllocationPct,
       { timingEffects: timing, planningMonth: 0 },
     );
@@ -98,7 +98,7 @@ describe('optimizer final calculation verification', () => {
     const scenarios = computeBudgetScenarios(
       baselines,
       [3500000, 4250000, 5000000, 6000000, 7500000],
-      'target',
+      'base',
       historicalAllocationPct,
       { timingEffects: timing, planningMonth: 0 },
     );

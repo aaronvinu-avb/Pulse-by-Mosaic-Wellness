@@ -56,7 +56,7 @@ export default function RecommendedMix() {
     totalPeriodBudget, durationMonths, monthlyBudget,
   } = useOptimizerModel();
 
-  const { setAllocations } = useOptimizer();
+  const { setAllocations, planningPeriod } = useOptimizer();
 
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
@@ -86,6 +86,17 @@ export default function RecommendedMix() {
   const topGainer   = uplift.topIncreases[0];
   const topReducer  = uplift.topReductions[0];
   const highVolChannels = CHANNELS.filter(ch => explanation[ch]?.isHighVolatility && recommendations[ch]?.direction === 'increase');
+
+  const kpiPeriodSuffix =
+    durationMonths <= 1
+      ? ''
+      : planningPeriod === '1q'
+        ? ' / qtr'
+        : planningPeriod === '6m'
+          ? ' / 6 mo'
+          : planningPeriod === '1y'
+            ? ' / yr'
+            : ` / ${durationMonths} mo`;
 
   return (
     <div style={{ maxWidth: 1200, display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -128,11 +139,18 @@ export default function RecommendedMix() {
         {/* Recommended Revenue */}
         <div style={{ padding: '14px 16px', border: '1px solid var(--border-subtle)', borderRadius: 12, backgroundColor: 'var(--bg-card)', display: 'flex', flexDirection: 'column' }}>
           <p style={{ ...T.overline, fontSize: 9 }}>Recommended Revenue</p>
-          <p style={{ ...T.num, fontWeight: 800, fontSize: 20, color: '#34D399', letterSpacing: '-0.025em', margin: '7px 0 4px' }}>
-            {formatINRCompact(optimizedPlan.totalPeriodRevenue)}
+          <p style={{ ...T.num, fontWeight: 800, fontSize: 20, color: '#34D399', letterSpacing: '-0.025em', margin: '7px 0 0' }}>
+            {formatINRCompact(optimizedPlan.totalMonthlyRevenue)}
           </p>
-          <p style={{ ...T.body, fontSize: 11, lineHeight: 1.45, flex: 1 }}>
-            Submission forecast — total revenue for the selected planning period under the optimized allocation ({durationMonths === 1 ? 'monthly total' : `${durationMonths} months`}).
+          {durationMonths > 1 && (
+            <p style={{ ...T.body, fontSize: 11, lineHeight: 1.35, margin: '4px 0 0', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
+              {formatINRCompact(optimizedPlan.totalPeriodRevenue)}{kpiPeriodSuffix}
+            </p>
+          )}
+          <p style={{ ...T.body, fontSize: 11, lineHeight: 1.45, flex: 1, marginTop: 4 }}>
+            {durationMonths > 1
+              ? 'Monthly total (main); muted line is revenue over the full planning window.'
+              : 'Monthly revenue under the optimized allocation.'}
           </p>
           <div style={{ height: 2, backgroundColor: '#34D399', borderRadius: 1, marginTop: 10, opacity: 0.3 }} />
         </div>
@@ -162,7 +180,7 @@ export default function RecommendedMix() {
           <p style={{ ...T.body, fontSize: 11, lineHeight: 1.45, flex: 1 }}>
             {nearOptimal
               ? 'Current mix is near-optimal — minimal revenue gain available'
-              : `${upliftSign ? '+' : ''}${formatINRCompact(Math.abs(uplift.revenueOpportunity))} vs current forecast`}
+              : `${upliftSign ? '+' : ''}${formatINRCompact(Math.abs(uplift.revenueOpportunity))} ${durationMonths > 1 ? 'period ' : ''}vs current forecast${durationMonths > 1 ? ` (${formatINRCompact(Math.abs(uplift.revenueOpportunity) / durationMonths)}/mo avg)` : ''}`}
           </p>
           <div style={{ height: 2, backgroundColor: upliftSign ? '#34D399' : '#F87171', borderRadius: 1, marginTop: 10, opacity: 0.3 }} />
         </div>
@@ -203,9 +221,12 @@ export default function RecommendedMix() {
           <div style={{ padding: '14px 18px', backgroundColor: 'var(--bg-root)', borderRadius: 9, border: '1px solid var(--border-subtle)' }}>
             <p style={{ ...T.overline, fontSize: 9, marginBottom: 14, color: 'var(--text-muted)' }}>Current Mix</p>
             {[
-              { k: 'Revenue forecast', v: formatINRCompact(currentPlan.totalPeriodRevenue) },
+              {
+                k: 'Revenue forecast',
+                v: `${formatINRCompact(currentPlan.totalMonthlyRevenue)}/mo${durationMonths > 1 ? ` · ${formatINRCompact(currentPlan.totalPeriodRevenue)}${kpiPeriodSuffix}` : ''}`,
+              },
               { k: 'Blended ROAS',     v: `${currentPlan.blendedROAS.toFixed(2)}x` },
-              { k: 'Total budget',     v: `${formatINRCompact(monthlyBudget)}/mo` },
+              { k: 'Total budget',     v: `${formatINRCompact(monthlyBudget)}/mo${durationMonths > 1 ? ` · ${formatINRCompact(totalPeriodBudget)}${kpiPeriodSuffix}` : ''}` },
               { k: 'Planning period',  v: `${durationMonths} month${durationMonths > 1 ? 's' : ''}` },
             ].map(({ k, v }) => (
               <div key={k} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: '1px solid var(--border-subtle)' }}>
@@ -229,7 +250,11 @@ export default function RecommendedMix() {
           <div style={{ padding: '14px 18px', backgroundColor: 'rgba(52,211,153,0.04)', borderRadius: 9, border: '1px solid rgba(52,211,153,0.18)' }}>
             <p style={{ ...T.overline, fontSize: 9, marginBottom: 14, color: '#34D399' }}>Recommended Mix</p>
             {[
-              { k: 'Revenue forecast', v: formatINRCompact(optimizedPlan.totalPeriodRevenue), highlight: upliftSign },
+              {
+                k: 'Revenue forecast',
+                v: `${formatINRCompact(optimizedPlan.totalMonthlyRevenue)}/mo${durationMonths > 1 ? ` · ${formatINRCompact(optimizedPlan.totalPeriodRevenue)}${kpiPeriodSuffix}` : ''}`,
+                highlight: upliftSign,
+              },
               { k: 'Blended ROAS',     v: `${optimizedPlan.blendedROAS.toFixed(2)}x`,        highlight: uplift.roasImprovement > 0 },
               { k: 'Total budget',     v: `${formatINRCompact(monthlyBudget)}/mo`,            highlight: false },
               { k: 'Changes',          v: `${meaningfulChanges} channel${meaningfulChanges !== 1 ? 's' : ''} shift`,  highlight: false },
@@ -356,6 +381,7 @@ export default function RecommendedMix() {
           const curPct = rec?.currentPct ?? curRow?.allocationPct ?? 0;
           const recSpendMo = (recPct / 100) * monthlyBudget;
           const curSpendMo = (curPct / 100) * monthlyBudget;
+          const recSpendPeriod = recSpendMo * durationMonths;
 
           // Channel-level ROAS under the recommended allocation
           const recROAS  = recRow && recRow.spend > 0 ? recRow.revenue / recRow.spend : 0;
@@ -406,6 +432,11 @@ export default function RecommendedMix() {
                   <p style={{ ...T.num, fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
                     {formatINRCompact(recSpendMo)}
                   </p>
+                  {durationMonths > 1 && (
+                    <p style={{ ...T.body, fontSize: 10, color: 'var(--text-muted)', margin: '2px 0 0', fontVariantNumeric: 'tabular-nums' }}>
+                      {formatINRCompact(recSpendPeriod)}{kpiPeriodSuffix}
+                    </p>
+                  )}
                   <p style={{ ...T.body, fontSize: 10, color: 'var(--text-muted)', margin: '3px 0 0', fontVariantNumeric: 'tabular-nums' }}>
                     was {formatINRCompact(curSpendMo)}
                   </p>

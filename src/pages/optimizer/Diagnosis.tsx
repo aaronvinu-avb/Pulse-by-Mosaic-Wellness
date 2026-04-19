@@ -75,6 +75,7 @@ export default function Diagnosis() {
     isLoading, currentPlan, diagnosis, flaggedChannels,
     overWeightedChannels, underWeightedChannels, portfolioROAS, monthlyBudget,
     explanation, historicalFractions,
+    durationMonths, planningPeriod, planningMode,
   } = useOptimizerModel();
 
   const [expandedFlags, setExpandedFlags] = useState<Set<string>>(new Set());
@@ -139,6 +140,10 @@ export default function Diagnosis() {
           color: 'var(--text-secondary)', margin: '5px 0 0', lineHeight: 1.5,
         }}>
           See which channels are over-invested, under-invested, or on track.
+          {' '}
+          <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>
+            Planning mode ({planningMode === 'conservative' ? 'Conservative' : planningMode === 'aggressive' ? 'Aggressive' : 'Base'}) shapes the recommended allocation on the next tab, not these efficiency bands.
+          </span>
         </p>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
           <span style={badgeStyle('#E8803A')}>
@@ -148,6 +153,11 @@ export default function Diagnosis() {
           <span style={badgeStyle('#94a3b8')}>
             <span style={dotStyle('#94a3b8')} />
             Monthly budget: {formatINRCompact(monthlyBudget)}
+          </span>
+          <span style={badgeStyle('#60A5FA')}>
+            <span style={dotStyle('#60A5FA')} />
+            Horizon: {durationMonths === 1 ? '1 month' : `${durationMonths} months`}
+            {planningPeriod === 'custom' ? ' (custom range)' : ''}
           </span>
         </div>
       </div>
@@ -685,7 +695,8 @@ export default function Diagnosis() {
                     </span>
                   </div>
                   <p style={{ ...T.body, fontSize: 11, marginTop: 2 }}>
-                    {(row?.allocationPct || 0).toFixed(1)}% allocated · {formatINRCompact(row?.periodRevenue || 0)} forecast
+                    {(row?.allocationPct || 0).toFixed(1)}% allocated · {formatINRCompact(row?.revenue || 0)}/mo
+                    {durationMonths > 1 ? ` · ${formatINRCompact(row?.periodRevenue || 0)} over ${durationMonths} mo` : ''} forecast
                   </p>
                   {expl && (
                     <p style={{ ...T.body, fontSize: 10, marginTop: 2, color: 'var(--text-muted)' }}>

@@ -12,7 +12,7 @@ import {
 } from '@/lib/optimizer/calculations';
 
 const MONTHLY_BUDGET = 5_000_000;
-const MODE: 'target' = 'target';
+const MODE: 'base' = 'base';
 
 describe('recalibration check (₹50L, Base, 1mo)', () => {
   it('prints summary table + passes sanity ranges', () => {
@@ -62,7 +62,7 @@ describe('recalibration check (₹50L, Base, 1mo)', () => {
     }
 
     console.log('\n=== RECALIBRATION (mock data) ===\n');
-    console.log('Global inputs: monthlyBudget=₹50L, planningMode=Base (target), period=1mo (planningMonth=0)');
+    console.log('Global inputs: monthlyBudget=₹50L, planningMode=Base, period=1mo (planningMonth=0)');
     console.log(rows.join('\n'));
     console.log('\n--- Portfolio ---');
     console.log(`Blended ROAS (current):  ${currentForecast.blendedROAS.toFixed(2)}x`);
@@ -94,5 +94,22 @@ describe('recalibration check (₹50L, Base, 1mo)', () => {
     const gdnRec = recommended.allocationsPct['Google Display'] ?? 0;
     expect(emailRec).toBeGreaterThan(10);
     expect(gdnRec).toBeLessThan(8);
+  });
+
+  it('planning modes produce different recommended allocations (exploration factor)', () => {
+    const records = generateMockData();
+    const baselines = computeChannelBaselines(records);
+    const timing = computeTimingEffects(records);
+    const historicalAllocationPct: Record<string, number> = {};
+    baselines.forEach(b => {
+      historicalAllocationPct[b.channel] = b.historicalAllocationPct;
+    });
+    const opts = { timingEffects: timing, planningMonth: 0 as number | null };
+    const cons = computeRecommendedMix(baselines, MONTHLY_BUDGET, 'conservative', historicalAllocationPct, opts);
+    const base = computeRecommendedMix(baselines, MONTHLY_BUDGET, 'base', historicalAllocationPct, opts);
+    const agg = computeRecommendedMix(baselines, MONTHLY_BUDGET, 'aggressive', historicalAllocationPct, opts);
+    expect(cons.allocationsPct['Email']).not.toBe(agg.allocationsPct['Email']);
+    expect(base.allocationsPct['Email']).toBeGreaterThanOrEqual(cons.allocationsPct['Email'] - 0.01);
+    expect(agg.allocationsPct['Email']).toBeGreaterThanOrEqual(base.allocationsPct['Email'] - 0.01);
   });
 });

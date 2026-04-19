@@ -59,6 +59,9 @@ export default function WhyItWorks() {
     explanation, recommendations, uplift,
     totalHistoricalMonths, dataRange, dataSource,
     debug,
+    planningMode,
+    durationMonths,
+    planningPeriod,
   } = useOptimizerModel();
 
   const [selectedChannel, setSelectedChannel] = useState(CHANNELS[0]);
@@ -70,6 +73,18 @@ export default function WhyItWorks() {
   const confidence    = uplift.upliftConfidence;
   const confMeta      = CONFIDENCE_META[confidence.tier];
   const portfolioPct  = Math.round((debug.portfolioAvgConfidence ?? 0.5) * 100);
+
+  const modeNarrative =
+    planningMode === 'conservative'
+      ? 'Conservative planning: low-risk rebalancing — allocations stay closer to your historical split.'
+      : planningMode === 'aggressive'
+        ? 'Aggressive planning: maximum efficiency reallocation within channel floors and caps.'
+        : 'Base planning: moderate optimisation between current mix and efficiency-weighted targets.';
+
+  const horizonNote =
+    durationMonths <= 1
+      ? 'Uplift and revenue deltas are shown on a monthly basis.'
+      : `Figures scale to your ${durationMonths}-month horizon${planningPeriod === 'custom' ? ' (custom range)' : ''}; percentage uplift is unchanged by horizon length.`;
 
   // Group channels by recommendation direction
   const increases = CHANNELS.filter(ch => recommendations[ch]?.direction === 'increase')
@@ -104,7 +119,14 @@ export default function WhyItWorks() {
             <span style={dotStyle('#94a3b8')} />
             Monthly budget: {formatINRCompact(monthlyBudget)}
           </span>
+          <span style={badgeStyle('#A78BFA')}>
+            <span style={dotStyle('#A78BFA')} />
+            {planningMode === 'conservative' ? 'Conservative' : planningMode === 'aggressive' ? 'Aggressive' : 'Base'} mode
+          </span>
         </div>
+        <p style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 12, color: 'var(--text-muted)', margin: '10px 0 0', lineHeight: 1.55 }}>
+          {modeNarrative} {horizonNote}
+        </p>
       </div>
 
       {/* ── B. How the Optimizer Thinks ──────────────────────────────────── */}

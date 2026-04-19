@@ -116,6 +116,18 @@ export default function CurrentMix() {
     planningPeriod === '1y' ? 'annual'    : 'selected period'
   );
 
+  /** Short suffix for KPI period-total lines, e.g. " / qtr" */
+  const kpiPeriodSuffix =
+    durationMonths <= 1
+      ? ''
+      : planningPeriod === '1q'
+        ? ' / qtr'
+        : planningPeriod === '6m'
+          ? ' / 6 mo'
+          : planningPeriod === '1y'
+            ? ' / yr'
+            : ` / ${durationMonths} mo`;
+
   // Budget input — we render a text input with Indian number grouping so the
   // user sees "50,00,000" (not the native-number input's "5000000"). The
   // underlying state stays numeric; we parse on every keystroke and format
@@ -190,10 +202,12 @@ export default function CurrentMix() {
       <div style={{
         border: '1px solid var(--border-subtle)', borderRadius: 12,
         backgroundColor: 'var(--bg-card)',
+        overflow: 'hidden',
+      }}>
+      <div style={{
         display: 'grid',
         gridTemplateColumns: 'minmax(160px, 220px) 1px minmax(140px, 200px) 1px auto',
         alignItems: 'stretch',
-        overflow: 'hidden',
       }}>
         {/* Budget */}
         <div style={{ padding: '14px 18px' }}>
@@ -289,7 +303,7 @@ export default function CurrentMix() {
               backgroundColor: 'var(--bg-root)',
             }}
           >
-            {(['conservative', 'target', 'aggressive'] as PlanningMode[]).map((m, i, arr) => (
+            {(['conservative', 'base', 'aggressive'] as PlanningMode[]).map((m, i, arr) => (
               <button
                 key={m}
                 type="button"
@@ -317,33 +331,47 @@ export default function CurrentMix() {
           </div>
         </div>
       </div>
+      <p style={{ ...T.body, fontSize: 10, margin: 0, padding: '0 18px 12px', opacity: 0.65, lineHeight: 1.35, borderTop: '1px solid var(--border-subtle)' }}>
+        Planning mode applies to Recommended Mix, uplift, and scenarios — not the current-allocation forecast in the KPIs above.
+      </p>
+      </div>
 
       {/* ── C. KPI Strip ──────────────────────────────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
         {[
           {
             label: 'Revenue Forecast',
-            value: formatINRCompact(currentPlan.totalPeriodRevenue),
-            sub: 'Current allocation',
+            value: formatINRCompact(currentPlan.totalMonthlyRevenue),
+            periodLine:
+              durationMonths > 1
+                ? `${formatINRCompact(currentPlan.totalPeriodRevenue)}${kpiPeriodSuffix}`
+                : undefined,
+            sub: 'Current allocation (monthly)',
             accent: '#60A5FA',
           },
           {
             label: 'Blended ROAS',
             value: `${currentPlan.blendedROAS.toFixed(2)}x`,
+            periodLine: undefined,
             sub: 'Spend-weighted return',
             accent: '#E8803A',
           },
           {
             label: 'Monthly Budget',
             value: formatINRCompact(monthlyBudget),
-            sub: `${durationMonths}mo · ${formatINRCompact(totalPeriodBudget)} total`,
+            periodLine:
+              durationMonths > 1
+                ? `${formatINRCompact(totalPeriodBudget)}${kpiPeriodSuffix}`
+                : undefined,
+            sub: durationMonths > 1 ? 'Per month · period total below' : 'Per month',
             accent: '#A78BFA',
           },
           {
             label: 'To Review',
             value: flaggedChannels.length === 0 ? 'All on track' : `${flaggedChannels.length} channels`,
+            periodLine: undefined,
             sub: flaggedChannels.length === 0
-              ? 'No flags detected'
+              ? 'No flags detected · mode affects Recommended only'
               : flaggedChannels.slice(0, 2).join(', ') + (flaggedChannels.length > 2 ? ` +${flaggedChannels.length - 2}` : ''),
             accent: flaggedChannels.length === 0 ? '#34D399' : '#FBBF24',
           },
@@ -356,10 +384,18 @@ export default function CurrentMix() {
             display: 'flex', flexDirection: 'column',
           }}>
             <p style={{ ...T.overline, fontSize: 9 }}>{kpi.label}</p>
-            <p style={{ ...T.num, fontWeight: 800, fontSize: 20, color: 'var(--text-primary)', letterSpacing: '-0.025em', margin: '7px 0 3px' }}>
+            <p style={{ ...T.num, fontWeight: 800, fontSize: 20, color: 'var(--text-primary)', letterSpacing: '-0.025em', margin: '7px 0 0' }}>
               {kpi.value}
             </p>
-            <p style={{ ...T.body, fontSize: 11, lineHeight: 1.35, flex: 1 }}>{kpi.sub}</p>
+            {kpi.periodLine != null && kpi.periodLine !== '' && (
+              <p style={{
+                ...T.body, fontSize: 11, lineHeight: 1.35, margin: '4px 0 0',
+                color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums',
+              }}>
+                {kpi.periodLine}
+              </p>
+            )}
+            <p style={{ ...T.body, fontSize: 11, lineHeight: 1.35, flex: 1, marginTop: kpi.periodLine ? 4 : 3 }}>{kpi.sub}</p>
             <div style={{ height: 2, backgroundColor: kpi.accent, borderRadius: 1, marginTop: 10, opacity: 0.28 }} />
           </div>
         ))}
@@ -913,7 +949,8 @@ export default function CurrentMix() {
             <p style={{ ...T.overline, fontSize: 9 }}>Takeaway</p>
           </div>
           <p style={{ ...T.body, fontSize: 12, lineHeight: 1.6 }}>
-            {formatINRCompact(currentPlan.totalPeriodRevenue)}
+            {formatINRCompact(currentPlan.totalMonthlyRevenue)}/mo
+            {durationMonths > 1 ? ` (${formatINRCompact(currentPlan.totalPeriodRevenue)} over ${durationMonths} months)` : ''}
             {' at '}{currentPlan.blendedROAS.toFixed(2)}x ROAS.
             {' '}
             {efficientCount === CHANNELS.length

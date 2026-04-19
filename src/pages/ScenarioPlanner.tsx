@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useOptimizerModel } from '@/hooks/useOptimizerModel';
 import { DashboardSkeleton } from '@/components/DashboardSkeleton';
-import { computeBudgetScenarios } from '@/lib/optimizer/calculations';
 import { formatINRCompact } from '@/lib/formatCurrency';
 import { CHANNELS } from '@/lib/mockData';
 import { Shield, Scale, Target, TrendingUp, Zap, Sliders } from 'lucide-react';
@@ -33,18 +32,21 @@ const SCENARIO_TIERS = [
 const BASELINE_IDX = SCENARIO_TIERS.findIndex(t => t.key === 'baseline');
 
 export default function ScenarioPlanner() {
-  const { isLoading, currentPlan, debug, monthlyBudget, planningMode } = useOptimizerModel();
+  const {
+    isLoading,
+    currentPlan,
+    debug,
+    monthlyBudget,
+    scenarioBudgets,
+    durationMonths,
+    planningPeriod,
+    totalPeriodBudget,
+  } = useOptimizerModel();
   const [marketMultiplier, setMarketMultiplier] = useState(1.0);
-
-  const scenarioBudgets = useMemo(
-    () => SCENARIO_TIERS.map(t => Math.round(monthlyBudget * t.multiplier)),
-    [monthlyBudget],
-  );
 
   const scenarioLabels = SCENARIO_TIERS.map(t => t.label);
   const scenarioColors = SCENARIO_TIERS.map(t => t.color);
 
-  const baselines = useMemo(() => debug.baselines || [], [debug.baselines]);
   const currentAllocationPct = useMemo(() => {
     const out: Record<string, number> = {};
     CHANNELS.forEach(ch => {
@@ -53,12 +55,19 @@ export default function ScenarioPlanner() {
     return out;
   }, [currentPlan.channels]);
 
-  const rawScenarios = useMemo(
-    () => baselines.length > 0
-      ? computeBudgetScenarios(baselines, scenarioBudgets, planningMode, currentAllocationPct)
-      : [],
-    [baselines, scenarioBudgets, planningMode, currentAllocationPct],
-  );
+  /** Same rungs as `computeBudgetScenarios` inside `useOptimizerModel` (timing-aware). */
+  const rawScenarios = useMemo(() => debug.scenarios ?? [], [debug.scenarios]);
+
+  const periodSuffix =
+    durationMonths <= 1
+      ? ''
+      : planningPeriod === '1q'
+        ? ' / qtr'
+        : planningPeriod === '6m'
+          ? ' / 6 mo'
+          : planningPeriod === '1y'
+            ? ' / yr'
+            : ` / ${durationMonths} mo`;
 
   const baselineAlignedScenarios = useMemo(() => {
     const baselineTierBudget = scenarioBudgets[BASELINE_IDX];
@@ -121,9 +130,16 @@ export default function ScenarioPlanner() {
             Scenario Planner
           </h1>
           <p style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: 'var(--text-secondary)', marginTop: 6 }}>Model budget scenarios across varying market conditions. Baseline mirrors the Current Mix reference.</p>
-          <div style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-strong)', padding: '6px 12px', borderRadius: 8 }}>
-            <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Baseline Budget: </span>
-            <span style={{ fontFamily: 'Outfit', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginLeft: 8, fontVariantNumeric: 'tabular-nums' }}>{formatINRCompact(monthlyBudget)} / mo</span>
+          <div style={{ marginTop: 12, display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4, backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-strong)', padding: '8px 12px', borderRadius: 8 }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+              <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Baseline Budget: </span>
+              <span style={{ fontFamily: 'Outfit', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{formatINRCompact(monthlyBudget)} / mo</span>
+            </div>
+            {durationMonths > 1 && (
+              <span style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
+                {formatINRCompact(totalPeriodBudget)} total{periodSuffix} · {durationMonths}-month horizon
+              </span>
+            )}
           </div>
         </div>
 
@@ -194,6 +210,14 @@ export default function ScenarioPlanner() {
                   <p style={{ fontFamily: 'Outfit', fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>
                     {formatINRCompact(s.revenue)}
                   </p>
+                  {durationMonths > 1 && (
+                    <>
+                      <p style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 9, color: 'var(--text-muted)', marginTop: 6, marginBottom: 2 }}>Forecast Period Revenue</p>
+                      <p style={{ fontFamily: 'Outfit', fontSize: 14, fontWeight: 700, color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>
+                        {formatINRCompact(s.revenue * durationMonths)}{periodSuffix}
+                      </p>
+                    </>
+                  )}
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>

@@ -57,6 +57,10 @@ export interface MixPlanSummary {
   allocationShares: Record<string, number>;
   /** Per-channel forecast rows, keyed by channel name */
   channels: Record<string, ChannelForecastRow>;
+  /** Portfolio-level forecast spend for one month (equals monthly budget in normal cases). */
+  totalMonthlySpend: number;
+  /** Portfolio-level forecast revenue for one month. */
+  totalMonthlyRevenue: number;
   totalPeriodSpend: number;
   totalPeriodRevenue: number;
   blendedROAS: number;
@@ -195,6 +199,8 @@ export interface OptimizerModelOutput {
   planningPeriod: PlanningPeriod;
   monthlyBudget: number;
   totalPeriodBudget: number;
+  /** Budget rungs used with `debug.scenarios` (same multipliers as Strategy Scenario Planner). */
+  scenarioBudgets: number[];
   modeMultiplier: number;
 
   // ── Historical benchmarks ──────────────────────────────────────────────────

@@ -5,8 +5,8 @@ import { buildMonthRange, planningDurationMonths } from '@/lib/optimizer/plannin
 import type { MonthPoint } from '@/lib/calculations';
 
 export type PlanningPeriod = '1m' | '1q' | '6m' | '1y' | 'custom';
-/** `target` = Base mode in the UI (moderate exploration toward efficiency). */
-export type PlanningMode = 'conservative' | 'target' | 'aggressive';
+/** `base` = Base mode in the UI (moderate exploration toward efficiency). */
+export type PlanningMode = 'conservative' | 'base' | 'aggressive';
 
 /**
  * Canonical starting monthly budget for the Mix Optimiser.
@@ -58,7 +58,7 @@ export const DEFAULT_EQUAL_ALLOC: Record<string, number> = Object.fromEntries(
 export function OptimizerProvider({ children }: { children: ReactNode }) {
   const [monthlyBudget, setMonthlyBudget] = useState(DEFAULT_MONTHLY_BUDGET);
   const [planningPeriod, setPlanningPeriod] = useState<PlanningPeriod>('1m');
-  const [planningMode, setPlanningMode] = useState<PlanningMode>('target');
+  const [planningMode, setPlanningMode] = useState<PlanningMode>('base');
   const [customStartMonth, setCustomStartMonth] = useState('2025-01');
   const [customEndMonth, setCustomEndMonth] = useState('2025-12');
   const [allocations, setAllocations] = useState<Record<string, number>>({});
