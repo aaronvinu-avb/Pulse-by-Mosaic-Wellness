@@ -277,18 +277,40 @@ export default function CurrentMix() {
         {/* Divider */}
         <div style={{ width: 1, backgroundColor: 'var(--border-subtle)' }} />
 
-        {/* Mode */}
-        <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-          <p style={{ ...T.overline, fontSize: 9, marginBottom: 8 }}>Planning Mode</p>
-          <div style={{ display: 'flex', gap: 4 }}>
-            {(['conservative', 'target', 'aggressive'] as PlanningMode[]).map(m => (
-              <button key={m} onClick={() => setPlanningMode(m)} style={{
-                fontFamily: 'Outfit', fontSize: 10, fontWeight: 600,
-                padding: '6px 10px', borderRadius: 6, cursor: 'pointer', transition: '120ms',
-                border: planningMode === m ? '1px solid rgba(232,128,58,0.45)' : '1px solid var(--border-subtle)',
-                backgroundColor: planningMode === m ? 'rgba(232,128,58,0.08)' : 'transparent',
-                color: planningMode === m ? '#E8803A' : 'var(--text-muted)',
-              }}>
+        {/* Mode — same vertical rhythm as Budget + Period (top-aligned, shared control height) */}
+        <div style={{ padding: '14px 18px' }}>
+          <p style={{ ...T.overline, fontSize: 9, marginBottom: 6 }}>Planning Mode</p>
+          <div
+            style={{
+              display: 'flex',
+              border: '1px solid var(--border-strong)',
+              borderRadius: 8,
+              overflow: 'hidden',
+              backgroundColor: 'var(--bg-root)',
+            }}
+          >
+            {(['conservative', 'target', 'aggressive'] as PlanningMode[]).map((m, i, arr) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setPlanningMode(m)}
+                style={{
+                  flex: 1,
+                  fontFamily: 'Outfit',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  padding: '8px 10px',
+                  minHeight: 38,
+                  lineHeight: 1.25,
+                  cursor: 'pointer',
+                  transition: '120ms',
+                  border: 'none',
+                  borderRight: i < arr.length - 1 ? '1px solid var(--border-subtle)' : 'none',
+                  borderRadius: 0,
+                  backgroundColor: planningMode === m ? 'rgba(232,128,58,0.10)' : 'transparent',
+                  color: planningMode === m ? '#E8803A' : 'var(--text-muted)',
+                }}
+              >
                 {m === 'conservative' ? 'Conservative' : m === 'aggressive' ? 'Aggressive' : 'Base'}
               </button>
             ))}
