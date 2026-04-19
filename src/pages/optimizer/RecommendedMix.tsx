@@ -12,7 +12,7 @@ import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { DashboardSkeleton } from '@/components/DashboardSkeleton';
 import { useOptimizerModel } from '@/hooks/useOptimizerModel';
-import { useOptimizer } from '@/contexts/OptimizerContext';
+import { useOptimizer, type PlanningMode } from '@/contexts/OptimizerContext';
 import { formatINRCompact } from '@/lib/formatCurrency';
 import { CHANNELS, CHANNEL_COLORS } from '@/lib/mockData';
 import { ChannelName } from '@/components/ChannelName';
@@ -56,7 +56,7 @@ export default function RecommendedMix() {
     totalPeriodBudget, durationMonths, monthlyBudget,
   } = useOptimizerModel();
 
-  const { setAllocations, planningPeriod } = useOptimizer();
+  const { setAllocations, planningPeriod, planningMode, setPlanningMode } = useOptimizer();
 
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
@@ -131,6 +131,54 @@ export default function RecommendedMix() {
         >
           <Sparkles size={13} /> Apply This Mix
         </button>
+      </div>
+
+      {/* Planning mode — drives exploration blend for recommended allocation */}
+      <div style={{
+        border: '1px solid var(--border-subtle)', borderRadius: 12,
+        backgroundColor: 'var(--bg-card)',
+        padding: '14px 18px',
+      }}>
+        <p style={{ ...T.overline, fontSize: 9, marginBottom: 8 }}>Planning Mode</p>
+        <div
+          style={{
+            display: 'flex',
+            maxWidth: 420,
+            border: '1px solid var(--border-strong)',
+            borderRadius: 8,
+            overflow: 'hidden',
+            backgroundColor: 'var(--bg-root)',
+          }}
+        >
+          {(['conservative', 'base', 'aggressive'] as PlanningMode[]).map((m, i, arr) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setPlanningMode(m)}
+              style={{
+                flex: 1,
+                fontFamily: 'Outfit',
+                fontSize: 12,
+                fontWeight: 600,
+                padding: '8px 12px',
+                minHeight: 38,
+                lineHeight: 1.25,
+                cursor: 'pointer',
+                transition: '120ms',
+                border: 'none',
+                borderRight: i < arr.length - 1 ? '1px solid var(--border-subtle)' : 'none',
+                borderRadius: 0,
+                backgroundColor: planningMode === m ? 'rgba(232,128,58,0.10)' : 'transparent',
+                color: planningMode === m ? '#E8803A' : 'var(--text-muted)',
+              }}
+            >
+              {m === 'conservative' ? 'Conservative' : m === 'aggressive' ? 'Aggressive' : 'Base'}
+            </button>
+          ))}
+        </div>
+        <p style={{ ...T.body, fontSize: 10, margin: '8px 0 0', opacity: 0.65, lineHeight: 1.4 }}>
+          Controls how strongly allocations shift from your current mix toward efficiency-weighted targets.
+        </p>
       </div>
 
       {/* ── B. Recommendation Summary Strip ─────────────────────────────── */}

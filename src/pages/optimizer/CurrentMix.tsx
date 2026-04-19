@@ -28,7 +28,7 @@ import {
   ArrowRight, TrendingUp, Activity, Minus,
   X, RotateCcw, Scale, SlidersHorizontal,
 } from 'lucide-react';
-import type { PlanningPeriod, PlanningMode } from '@/contexts/OptimizerContext';
+import type { PlanningPeriod } from '@/contexts/OptimizerContext';
 import {
   T, CARD, TABLE, badgeStyle, dotStyle,
   STATUS_META, STATUS_ORDER, type StatusKey,
@@ -68,7 +68,6 @@ export default function CurrentMix() {
   const {
     setMonthlyBudget,
     planningPeriod, setPlanningPeriod,
-    planningMode, setPlanningMode,
     customStartMonth, setCustomStartMonth,
     customEndMonth, setCustomEndMonth,
     allocations, setAllocations,
@@ -206,7 +205,7 @@ export default function CurrentMix() {
       }}>
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'minmax(160px, 220px) 1px minmax(140px, 200px) 1px auto',
+        gridTemplateColumns: 'minmax(160px, 220px) 1px minmax(140px, 200px)',
         alignItems: 'stretch',
       }}>
         {/* Budget */}
@@ -287,53 +286,7 @@ export default function CurrentMix() {
             </div>
           )}
         </div>
-
-        {/* Divider */}
-        <div style={{ width: 1, backgroundColor: 'var(--border-subtle)' }} />
-
-        {/* Mode — same vertical rhythm as Budget + Period (top-aligned, shared control height) */}
-        <div style={{ padding: '14px 18px' }}>
-          <p style={{ ...T.overline, fontSize: 9, marginBottom: 6 }}>Planning Mode</p>
-          <div
-            style={{
-              display: 'flex',
-              border: '1px solid var(--border-strong)',
-              borderRadius: 8,
-              overflow: 'hidden',
-              backgroundColor: 'var(--bg-root)',
-            }}
-          >
-            {(['conservative', 'base', 'aggressive'] as PlanningMode[]).map((m, i, arr) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => setPlanningMode(m)}
-                style={{
-                  flex: 1,
-                  fontFamily: 'Outfit',
-                  fontSize: 12,
-                  fontWeight: 600,
-                  padding: '8px 10px',
-                  minHeight: 38,
-                  lineHeight: 1.25,
-                  cursor: 'pointer',
-                  transition: '120ms',
-                  border: 'none',
-                  borderRight: i < arr.length - 1 ? '1px solid var(--border-subtle)' : 'none',
-                  borderRadius: 0,
-                  backgroundColor: planningMode === m ? 'rgba(232,128,58,0.10)' : 'transparent',
-                  color: planningMode === m ? '#E8803A' : 'var(--text-muted)',
-                }}
-              >
-                {m === 'conservative' ? 'Conservative' : m === 'aggressive' ? 'Aggressive' : 'Base'}
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
-      <p style={{ ...T.body, fontSize: 10, margin: 0, padding: '0 18px 12px', opacity: 0.65, lineHeight: 1.35, borderTop: '1px solid var(--border-subtle)' }}>
-        Planning mode applies to Recommended Mix, uplift, and scenarios — not the current-allocation forecast in the KPIs above.
-      </p>
       </div>
 
       {/* ── C. KPI Strip ──────────────────────────────────────────────────── */}
@@ -371,7 +324,7 @@ export default function CurrentMix() {
             value: flaggedChannels.length === 0 ? 'All on track' : `${flaggedChannels.length} channels`,
             periodLine: undefined,
             sub: flaggedChannels.length === 0
-              ? 'No flags detected · mode affects Recommended only'
+              ? 'No flags detected'
               : flaggedChannels.slice(0, 2).join(', ') + (flaggedChannels.length > 2 ? ` +${flaggedChannels.length - 2}` : ''),
             accent: flaggedChannels.length === 0 ? '#34D399' : '#FBBF24',
           },
