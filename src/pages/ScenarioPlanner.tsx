@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useOptimizerModel } from '@/hooks/useOptimizerModel';
 import { DashboardSkeleton } from '@/components/DashboardSkeleton';
 import { computeBudgetScenarios } from '@/lib/optimizer/calculations';
-import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
+import { formatINRCompact } from '@/lib/formatCurrency';
 import { CHANNELS } from '@/lib/mockData';
 import { Shield, Scale, Target, TrendingUp, Zap, Sliders } from 'lucide-react';
 import {
@@ -260,7 +260,7 @@ export default function ScenarioPlanner() {
             <CartesianGrid strokeDasharray="2 4" stroke="var(--border-subtle)" vertical={false} />
             <XAxis dataKey="day" tick={{ fontSize: 10, fill: 'var(--text-muted)', fontFamily: 'Plus Jakarta Sans' }} axisLine={false} tickLine={false} interval={4} />
             <YAxis tickFormatter={(v: number) => formatINRCompact(v)} tick={{ fontSize: 10, fill: 'var(--text-muted)', fontFamily: 'Plus Jakarta Sans' }} axisLine={false} tickLine={false} />
-            <Tooltip formatter={(v: number) => formatINR(v)} {...chartTooltipStyle} />
+            <Tooltip formatter={(v: number) => formatINRCompact(v)} {...chartTooltipStyle} />
 
             <Area type="monotone" dataKey="aggressive"   stroke={scenarioColors[HIGH_IDX]}     fill="url(#grad-agg)"  strokeWidth={2.5} />
             <Area type="monotone" dataKey="baseline"     stroke={scenarioColors[BASELINE_IDX]} fill="url(#grad-base)" strokeWidth={2.5} />

@@ -327,7 +327,7 @@ export default function Diagnosis() {
                           {d && [
                             { k: 'Current allocation', v: `${(row?.allocationPct || 0).toFixed(1)}%` },
                             { k: 'Historical baseline', v: `${histPct}%` },
-                            { k: 'Delta', v: `${d.deltaPct >= 0 ? '+' : ''}${d.deltaPct.toFixed(0)}%` },
+                            { k: 'Delta', v: `${d.deltaPct >= 0 ? '+' : ''}${d.deltaPct.toFixed(1)}%` },
                             { k: 'Current spend', v: formatINRCompact(d.currentSpend) },
                             {
                               k: 'Efficient range',
@@ -437,7 +437,7 @@ export default function Diagnosis() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <ChannelName channel={ch} style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }} />
                       <span style={{ fontFamily: 'Outfit', fontSize: 12, fontWeight: 700, color: '#FBBF24' }}>
-                        +{Math.abs(d?.deltaPct || 0).toFixed(0)}% vs hist.
+                        +{Math.abs(d?.deltaPct || 0).toFixed(1)}% vs hist.
                       </span>
                     </div>
                     <p style={{ ...T.body, fontSize: 11, marginTop: 3, lineHeight: 1.4 }}>
@@ -473,7 +473,7 @@ export default function Diagnosis() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <ChannelName channel={ch} style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }} />
                       <span style={{ fontFamily: 'Outfit', fontSize: 12, fontWeight: 700, color: '#60A5FA' }}>
-                        {(d?.deltaPct || 0).toFixed(0)}% vs hist.
+                        {(d?.deltaPct || 0).toFixed(1)}% vs hist.
                       </span>
                     </div>
                     <p style={{ ...T.body, fontSize: 11, marginTop: 3, lineHeight: 1.4 }}>
@@ -675,20 +675,23 @@ export default function Diagnosis() {
             {topChannels.map(ch => {
               const expl = explanation[ch];
               const row  = currentPlan.channels[ch];
+              const forecastRoas = row?.roas ?? 0;
               return (
                 <div key={ch} style={{ paddingBottom: 8, marginBottom: 8, borderBottom: '1px solid var(--border-subtle)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <ChannelName channel={ch} style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }} />
                     <span style={{ fontFamily: 'Outfit', fontSize: 12, fontWeight: 700, color: '#34D399' }}>
-                      {(expl?.tunedROAS ?? row?.roas ?? 0).toFixed(2)}x
+                      {forecastRoas.toFixed(2)}x
                     </span>
                   </div>
                   <p style={{ ...T.body, fontSize: 11, marginTop: 2 }}>
                     {(row?.allocationPct || 0).toFixed(1)}% allocated · {formatINRCompact(row?.periodRevenue || 0)} forecast
                   </p>
-                  <p style={{ ...T.body, fontSize: 10, marginTop: 2 }}>
-                    Tuned ROAS signal: {(expl?.tunedROAS ?? row?.roas ?? 0).toFixed(2)}x
-                  </p>
+                  {expl && (
+                    <p style={{ ...T.body, fontSize: 10, marginTop: 2, color: 'var(--text-muted)' }}>
+                      Tuned historical ROAS: {expl.tunedROAS.toFixed(2)}x
+                    </p>
+                  )}
                 </div>
               );
             })}

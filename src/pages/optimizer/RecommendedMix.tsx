@@ -132,7 +132,7 @@ export default function RecommendedMix() {
             {formatINRCompact(optimizedPlan.totalPeriodRevenue)}
           </p>
           <p style={{ ...T.body, fontSize: 11, lineHeight: 1.45, flex: 1 }}>
-            Modeled revenue under the optimized allocation
+            Submission forecast — total revenue for the selected planning period under the optimized allocation ({durationMonths === 1 ? 'monthly total' : `${durationMonths} months`}).
           </p>
           <div style={{ height: 2, backgroundColor: '#34D399', borderRadius: 1, marginTop: 10, opacity: 0.3 }} />
         </div>
