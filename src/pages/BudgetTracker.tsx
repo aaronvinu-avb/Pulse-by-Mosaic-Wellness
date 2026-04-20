@@ -13,8 +13,17 @@ export default function BudgetTracker() {
   const { channelBudgets, setChannelBudgets } = useAppContext();
   const [isEditing, setIsEditing] = useState(false);
   const [tempBudgets, setTempBudgets] = useState<Record<string, number>>({});
-  
-  const TOTAL_BUDGET = useMemo(() => Object.values(channelBudgets).reduce((a, b) => a + b, 0), [channelBudgets]);
+
+  /** While editing, pacing uses draft targets so labels stay in sync before Save. */
+  const effectiveChannelBudgets = useMemo(
+    () => (isEditing ? { ...channelBudgets, ...tempBudgets } : channelBudgets),
+    [isEditing, channelBudgets, tempBudgets],
+  );
+
+  const TOTAL_BUDGET = useMemo(
+    () => Object.values(effectiveChannelBudgets).reduce((a, b) => a + b, 0),
+    [effectiveChannelBudgets],
+  );
 
   const { monthName, channelSpends, totalSpent, daysRemaining, projected, dailyBurnRate, idealDailyBurn, requiredDailyBurn } = useMemo(() => {
     if (!data) return { monthName: '', channelSpends: [], totalSpent: 0, daysRemaining: 0, projected: 0, dailyBurnRate: 0, idealDailyBurn: 0, requiredDailyBurn: 0 };
@@ -35,7 +44,7 @@ export default function BudgetTracker() {
 
     const channelSpends = CHANNELS.map(ch => {
       const spent = monthData.filter(r => r.channel === ch).reduce((s, r) => s + r.spend, 0);
-      const budget = channelBudgets[ch] || 0;
+      const budget = effectiveChannelBudgets[ch] ?? 0;
       const pct = budget > 0 ? (spent / budget) * 100 : 0;
       const projectedSpend = dayOfMonth > 0 ? (spent / dayOfMonth) * daysInMonth : 0;
       const pacingRatio = budget > 0 ? projectedSpend / budget : (spent > 0 ? Infinity : 1);
@@ -57,14 +66,16 @@ export default function BudgetTracker() {
 
     const totalSpent = channelSpends.reduce((s, c) => s + c.spent, 0);
     const projected = dayOfMonth > 0 ? (totalSpent / dayOfMonth) * daysInMonth : 0;
-    
+
+    const totalBudget = Object.values(effectiveChannelBudgets).reduce((a, b) => a + b, 0);
+
     // Velocity metrics
     const dailyBurnRate = totalSpent / dayOfMonth;
-    const idealDailyBurn = TOTAL_BUDGET / daysInMonth;
-    const requiredDailyBurn = daysRemaining > 0 ? Math.max(0, (TOTAL_BUDGET - totalSpent) / daysRemaining) : 0;
+    const idealDailyBurn = totalBudget / daysInMonth;
+    const requiredDailyBurn = daysRemaining > 0 ? Math.max(0, (totalBudget - totalSpent) / daysRemaining) : 0;
 
     return { monthName, channelSpends, totalSpent, daysRemaining, projected, dailyBurnRate, idealDailyBurn, requiredDailyBurn };
-  }, [data, channelBudgets, TOTAL_BUDGET]);
+  }, [data, effectiveChannelBudgets]);
 
   if (isLoading) return <DashboardSkeleton />;
 

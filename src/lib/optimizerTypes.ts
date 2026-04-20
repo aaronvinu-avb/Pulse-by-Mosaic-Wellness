@@ -199,7 +199,7 @@ export interface OptimizerModelOutput {
   planningPeriod: PlanningPeriod;
   monthlyBudget: number;
   totalPeriodBudget: number;
-  /** Budget rungs used with `debug.scenarios` (same multipliers as Strategy Scenario Planner). */
+  /** Budget rungs for `debug.scenarios` — same multipliers as Scenario Planner; baseline rung equals monthly budget. */
   scenarioBudgets: number[];
   modeMultiplier: number;
 

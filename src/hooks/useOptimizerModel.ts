@@ -422,8 +422,10 @@ export function useOptimizerModel(): OptimizerModelOutput {
     return { min: boundaries.earliestDate, max: boundaries.latestDate };
   }, [boundaries]);
 
+  /** Same multipliers as Scenario Planner; baseline rung uses exact `safeBudget` so it matches Current Mix. */
   const scenarioBudgets = useMemo(
-    () => [0.7, 0.85, 1, 1.2, 1.5].map(m => Math.round(safeBudget * m)),
+    () =>
+      [0.7, 0.85, 1, 1.2, 1.5].map(m => (m === 1 ? safeBudget : Math.round(safeBudget * m))),
     [safeBudget],
   );
   const scenarioOutputs = useMemo(

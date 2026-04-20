@@ -614,23 +614,33 @@ export function computeRecommendedMix(
   };
 }
 
+/**
+ * Budget ladder at fixed **current mix** allocations (same as `computeCurrentMixForecast`).
+ * Uses the same saturation curves and timing modifiers as the Mix Optimiser; does not
+ * re-optimize allocations per tier (that would conflate scenario scale with recommended mix).
+ */
 export function computeBudgetScenarios(
   baselines: ChannelBaseline[],
   scenarios: number[],
-  mode: OptimizerPlanningMode,
+  _mode: OptimizerPlanningMode,
   currentAllocationPct: Record<string, number>,
   options?: {
     timingEffects?: TimingEffects;
     planningMonth?: number | null;
   },
 ): ScenarioOutput[] {
+  void _mode;
   return scenarios.map(budget => {
-    const rec = computeRecommendedMix(baselines, budget, mode, currentAllocationPct, options);
+    const forecast = computeCurrentMixForecast(currentAllocationPct, budget, baselines, options);
+    const allocationsPct: Record<string, number> = {};
+    for (const ch of CHANNELS) {
+      allocationsPct[ch] = forecast.channels[ch]?.allocationPct ?? 0;
+    }
     return {
       budget,
-      allocationsPct: rec.allocationsPct,
-      totalRevenue: rec.forecast.totalRevenue,
-      blendedROAS: rec.forecast.blendedROAS,
+      allocationsPct,
+      totalRevenue: forecast.totalRevenue,
+      blendedROAS: forecast.blendedROAS,
     };
   });
 }
