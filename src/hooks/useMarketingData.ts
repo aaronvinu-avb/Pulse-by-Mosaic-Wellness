@@ -1,11 +1,11 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getAggregatedState } from '@/lib/calculations';
 import { useAppContext } from '@/contexts/AppContext';
 import { useMemo, useRef, useEffect } from 'react';
 import { auditMarketingData, logDataQualityReport, type DataQualityReport } from '@/lib/dataQuality';
 import { computeDataBoundaries, subtractDays, type DataBoundaries } from '@/lib/dataBoundaries';
 import {
-  fetchMarketingDataset,
+  getMarketingDatasetQueryOptions,
   MARKETING_DATA_QUERY_KEY,
   type MarketingDatasetLoadResult,
 } from '@/lib/marketingDataLoader';
@@ -20,11 +20,9 @@ export { MARKETING_DATA_QUERY_KEY };
 
 export function useMarketingData(options: UseMarketingDataOptions = {}) {
   const { includeGlobalAggregate = false } = options;
-  const query = useQuery<MarketingDatasetLoadResult>({
-    queryKey: MARKETING_DATA_QUERY_KEY,
-    queryFn: fetchMarketingDataset,
-    staleTime: Infinity,
-    retry: false,
+  const queryClient = useQueryClient();
+  const query = useQuery({
+    ...getMarketingDatasetQueryOptions(queryClient),
   });
 
   const { dateFilter } = useAppContext();
@@ -81,6 +79,8 @@ export function useMarketingData(options: UseMarketingDataOptions = {}) {
     return getAggregatedState(filteredData);
   }, [filteredData]);
 
+  const isDatasetHydrating = query.data?.loadState === 'partial';
+
   return {
     ...query,
     data: filteredData,
@@ -90,5 +90,6 @@ export function useMarketingData(options: UseMarketingDataOptions = {}) {
     dataUpdatedAt: query.dataUpdatedAt,
     auditReport,
     boundaries,
+    isDatasetHydrating,
   };
 }

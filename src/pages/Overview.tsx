@@ -17,7 +17,7 @@ import { useAppContext } from '@/contexts/AppContext';
 const ORBIT_COLORS = ['#60A5FA', '#34D399', '#FBBF24', '#F87171', '#A78BFA', '#2DD4BF', '#E879F9', '#FB923C', '#86EFAC', '#F9A8D4'];
 
 export default function Overview() {
-  const { data, aggregate, globalAggregate, isLoading, error, refetch, dataSource, boundaries } = useMarketingData({ includeGlobalAggregate: true });
+  const { data, aggregate, globalAggregate, isLoading, error, refetch, dataSource, boundaries, isDatasetHydrating } = useMarketingData({ includeGlobalAggregate: true });
   const { dateFilter } = useAppContext();
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
   const [hoveredRow, setHoveredRow] = useState<number | null>(null);
@@ -178,6 +178,11 @@ export default function Overview() {
           </h1>
           <p style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 13, color: 'var(--text-muted)', letterSpacing: '0.01em', marginTop: 6 }}>
             Marketing intelligence across 10 channels{boundaries ? ` · ${boundaries.fullRangeLabel}` : ''}
+            {isDatasetHydrating && (
+              <span style={{ display: 'block', marginTop: 4, fontSize: 11, color: '#60A5FA' }}>
+                Loading full history in the background…
+              </span>
+            )}
           </p>
         </div>
         <button 

@@ -36,6 +36,7 @@ export default defineConfig(({ mode }) => ({
         manualChunks(id) {
           if (!id.includes("node_modules")) return undefined;
           if (id.includes("recharts")) return "charts";
+          if (id.includes("lucide-react")) return "icons";
           if (id.includes("react-router-dom")) return "router";
           if (id.includes("@tanstack/react-query") || id.includes("@tanstack/query-core")) return "query";
           return "vendor";

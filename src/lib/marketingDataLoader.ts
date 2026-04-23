@@ -1,3 +1,4 @@
+import type { QueryClient, UseQueryOptions } from '@tanstack/react-query';
 import { MarketingRecord, generateMockData } from '@/lib/mockData';
 import { getCache, setCache } from '@/lib/storage';
 
@@ -15,6 +16,8 @@ export type MarketingDatasetLoadResult = {
   records: MarketingRecord[];
   source: DataSource;
   droppedDuringNormalization: number;
+  /** API multi-page fetch: first page returned immediately, remainder loads in background. */
+  loadState?: 'partial' | 'complete';
 };
 
 function toNumber(value: unknown): number {
@@ -61,8 +64,8 @@ function normalizeRecords(records: unknown[]): { records: MarketingRecord[]; dro
   return { records: out, dropped };
 }
 
-async function fetchInChunks(totalPages: number): Promise<MarketingRecord[]> {
-  const results: MarketingRecord[][] = [];
+async function fetchInChunks(totalPages: number): Promise<unknown[]> {
+  const results: unknown[][] = [];
   const pages = Array.from({ length: totalPages - 1 }, (_, i) => i + 2);
 
   for (let i = 0; i < pages.length; i += CONCURRENCY_LIMIT) {
@@ -81,64 +84,158 @@ async function fetchInChunks(totalPages: number): Promise<MarketingRecord[]> {
   return results.flat();
 }
 
-async function fetchAllPages(): Promise<MarketingRecord[]> {
+function scheduleRemainingPages(
+  queryClient: QueryClient,
+  totalPages: number,
+  firstRecords: MarketingRecord[],
+  firstDropped: number,
+) {
+  if (totalPages <= 1) return;
+
+  void (async () => {
+    const start = performance.now();
+    try {
+      const restRaw = await fetchInChunks(totalPages);
+      const { records: restRecords, dropped: restDropped } = normalizeRecords(restRaw);
+      const merged = firstRecords.concat(restRecords);
+      const dropped = firstDropped + restDropped;
+
+      queryClient.setQueryData(MARKETING_DATA_QUERY_KEY, (prev: MarketingDatasetLoadResult | undefined) => {
+        if (!prev || prev.source !== 'api') return prev;
+        if (merged.length < prev.records.length) return prev;
+        return {
+          records: merged,
+          source: 'api',
+          droppedDuringNormalization: dropped,
+          loadState: 'complete',
+        };
+      });
+
+      setCache(CACHE_KEY, merged).catch(err => console.error('Cache save failed:', err));
+
+      const end = performance.now();
+      console.log(
+        `[Luma] Background hydration: merged ${merged.length} records across ${totalPages} page(s) in ${((end - start) / 1000).toFixed(2)}s`,
+      );
+    } catch (err) {
+      console.warn('[Luma] Background pagination failed — keeping first-page slice:', err);
+      queryClient.setQueryData(MARKETING_DATA_QUERY_KEY, (prev: MarketingDatasetLoadResult | undefined) => {
+        if (!prev) return prev;
+        return { ...prev, loadState: 'complete' };
+      });
+    }
+  })();
+}
+
+async function fetchAllPagesBlocking(): Promise<{ records: MarketingRecord[]; dropped: number }> {
   const start = performance.now();
 
   const res = await fetch(`${API_BASE}?page=1&limit=${PAGINATION_LIMIT}`);
   if (!res.ok) throw new Error(`API error: ${res.status}`);
   const firstPageJson = await res.json();
 
-  const firstPageRecords: MarketingRecord[] = Array.isArray(firstPageJson)
+  const firstPageRaw: unknown[] = Array.isArray(firstPageJson)
     ? firstPageJson
     : firstPageJson.data ?? firstPageJson.results ?? [];
 
-  if (firstPageRecords.length === 0) throw new Error('No data returned');
+  if (firstPageRaw.length === 0) throw new Error('No data returned');
 
   const totalPages = firstPageJson.pagination?.total_pages ?? 1;
-  const allRecords = [...firstPageRecords];
-
+  let allRaw: unknown[] = [...firstPageRaw];
   if (totalPages > 1) {
-    const remaining = await fetchInChunks(totalPages);
-    allRecords.push(...remaining);
+    const restRaw = await fetchInChunks(totalPages);
+    allRaw = allRaw.concat(restRaw);
   }
 
-  const end = performance.now();
+  const normalized = normalizeRecords(allRaw);
   const meta = firstPageJson.pagination;
   console.log(
-    `[Luma] Fetched ${allRecords.length} records across ${totalPages} page(s) in ${((end - start) / 1000).toFixed(2)}s` +
+    `[Luma] Fetched ${normalized.records.length} records across ${totalPages} page(s) in ${((performance.now() - start) / 1000).toFixed(2)}s` +
       (meta ? ` (API total_records=${meta.total_records ?? 'n/a'}, page_size=${meta.page_size ?? PAGINATION_LIMIT})` : ''),
   );
-  if (meta && typeof meta.total_records === 'number' && meta.total_records !== allRecords.length) {
+  if (meta && typeof meta.total_records === 'number' && meta.total_records !== normalized.records.length) {
     console.warn(
-      `[Luma] Record count mismatch — API advertised ${meta.total_records} total_records but we received ${allRecords.length}. Pagination may be incomplete.`,
+      `[Luma] Record count mismatch — API advertised ${meta.total_records} total_records but we received ${normalized.records.length}. Pagination may be incomplete.`,
     );
   }
 
-  return allRecords;
+  return normalized;
 }
 
 /**
  * Single source of truth for marketing rows (API → cache → mock).
- * Used by React Query and by explicit prefetch (hover / landing CTA).
+ * When the API has multiple pages, **page 1 resolves immediately** and the rest
+ * hydrate in the background via `queryClient.setQueryData` (faster TTI).
  */
-export async function fetchMarketingDataset(): Promise<MarketingDatasetLoadResult> {
+export async function fetchMarketingDataset(queryClient: QueryClient): Promise<MarketingDatasetLoadResult> {
   const cached = await getCache<MarketingRecord[]>(CACHE_KEY);
   if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
     console.log('[Luma] Loading from IndexedDB Cache');
     const { records, dropped } = normalizeRecords(cached.data);
-    return { records, source: 'cached', droppedDuringNormalization: dropped };
+    return { records, source: 'cached', droppedDuringNormalization: dropped, loadState: 'complete' };
   }
 
   try {
-    const data = await fetchAllPages();
-    const { records, dropped } = normalizeRecords(data);
+    const res = await fetch(`${API_BASE}?page=1&limit=${PAGINATION_LIMIT}`);
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    const firstPageJson = await res.json();
+
+    const firstPageRaw: unknown[] = Array.isArray(firstPageJson)
+      ? firstPageJson
+      : firstPageJson.data ?? firstPageJson.results ?? [];
+
+    if (firstPageRaw.length === 0) throw new Error('No data returned');
+
+    const totalPages = firstPageJson.pagination?.total_pages ?? 1;
+    const { records, dropped } = normalizeRecords(firstPageRaw);
+
+    if (totalPages > 1) {
+      console.log(
+        `[Luma] Fast path: showing ${records.length} rows while fetching ${totalPages - 1} more page(s) in background`,
+      );
+      scheduleRemainingPages(queryClient, totalPages, records, dropped);
+      return {
+        records,
+        source: 'api',
+        droppedDuringNormalization: dropped,
+        loadState: 'partial',
+      };
+    }
+
+    const meta = firstPageJson.pagination;
+    console.log(
+      `[Luma] Fetched ${records.length} records (single page)` +
+        (meta ? ` (API total_records=${meta.total_records ?? 'n/a'})` : ''),
+    );
 
     setCache(CACHE_KEY, records).catch(err => console.error('Cache save failed:', err));
 
-    return { records, source: 'api', droppedDuringNormalization: dropped };
+    return {
+      records,
+      source: 'api',
+      droppedDuringNormalization: dropped,
+      loadState: 'complete',
+    };
   } catch (err) {
-    console.warn('API/Cache unavailable, using mock data:', err);
-
-    return { records: generateMockData(), source: 'mock', droppedDuringNormalization: 0 };
+    console.warn('API fast path failed, trying full blocking fetch / mock:', err);
+    try {
+      const { records, dropped } = await fetchAllPagesBlocking();
+      setCache(CACHE_KEY, records).catch(e => console.error('Cache save failed:', e));
+      return { records, source: 'api', droppedDuringNormalization: dropped, loadState: 'complete' };
+    } catch (err2) {
+      console.warn('API/Cache unavailable, using mock data:', err2);
+      return { records: generateMockData(), source: 'mock', droppedDuringNormalization: 0, loadState: 'complete' };
+    }
   }
+}
+
+export function getMarketingDatasetQueryOptions(
+  queryClient: QueryClient,
+): UseQueryOptions<MarketingDatasetLoadResult, Error> {
+  return {
+    queryKey: MARKETING_DATA_QUERY_KEY,
+    queryFn: () => fetchMarketingDataset(queryClient),
+    staleTime: Infinity,
+    retry: false,
+  };
 }
