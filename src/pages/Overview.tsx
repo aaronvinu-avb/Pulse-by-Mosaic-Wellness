@@ -7,7 +7,7 @@ import { getChannelSummaries, getMonthlyAggregation, getChannelSaturationModels,
 import { formatINR, formatINRCompact, formatROAS } from '@/lib/formatCurrency';
 import { parseLocalDate } from '@/lib/dataBoundaries';
 import { CHANNELS } from '@/lib/mockData';
-import { LineChart, Line, ResponsiveContainer } from 'recharts';
+import { MiniSparkline } from '@/components/MiniSparkline';
 import { Download } from 'lucide-react';
 import { exportToCSV } from '@/lib/exportData';
 import { Link } from 'react-router-dom';
@@ -232,7 +232,12 @@ export default function Overview() {
 
         {/* Right: opportunity banner + channel table */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minHeight: 0 }}>
-          <DeferredRender delay={150}>
+          <DeferredRender
+        delay={120}
+        fallback={
+          <div className="rounded-2xl skeleton-shimmer w-full" style={{ minHeight: 420, backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }} />
+        }
+      >
             {/* Opportunity Alert */}
             {opportunityGap > 0 && (
               <>
@@ -278,7 +283,7 @@ export default function Overview() {
                 {sorted.map((ch, i) => {
                   const isExpanded = expandedRow === i;
                   const isHovered = hoveredRow === i;
-                  const spark = channelMonthlyRevenue[ch.channel]?.map((v, j) => ({ j, v })) || [];
+                  const sparkValues = channelMonthlyRevenue[ch.channel] || [];
 
                   return (
                     <div key={ch.channel}>
@@ -301,13 +306,7 @@ export default function Overview() {
                           <span style={{ backgroundColor: `${ch.color}1F`, color: ch.color, fontFamily: 'Outfit', fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 9999, fontVariantNumeric: 'tabular-nums' }}>{formatROAS(ch.roas)}</span>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                          <div style={{ width: 90, height: 28 }}>
-                            <ResponsiveContainer width="100%" height="100%">
-                              <LineChart data={spark}>
-                                <Line type="monotone" dataKey="v" stroke={ch.color} strokeWidth={1.5} dot={false} />
-                              </LineChart>
-                            </ResponsiveContainer>
-                          </div>
+                          <MiniSparkline data={sparkValues} width={90} height={28} color={ch.color} />
                         </div>
                       </div>
 
